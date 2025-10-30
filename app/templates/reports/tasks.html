@@ -1,0 +1,225 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Reporte de Tareas - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-tasks me-2"></i>Reporte de Tareas
+        </h1>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="area_id" class="form-label">Área</label>
+                        <select name="area_id" id="area_id" class="form-select">
+                            <option value="">Todas las áreas</option>
+                            {% for area in areas %}
+                            <option value="{{ area.id }}" {% if selected_area_id == area.id %}selected{% endif %}>
+                                {{ area.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status" class="form-label">Estado</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="">Todos los estados</option>
+                            <option value="pendiente" {% if selected_status == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                            <option value="en_progreso" {% if selected_status == 'en_progreso' %}selected{% endif %}>En Progreso</option>
+                            <option value="completada" {% if selected_status == 'completada' %}selected{% endif %}>Completada</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="priority" class="form-label">Prioridad</label>
+                        <select name="priority" id="priority" class="form-select">
+                            <option value="">Todas las prioridades</option>
+                            <option value="baja" {% if selected_priority == 'baja' %}selected{% endif %}>Baja</option>
+                            <option value="media" {% if selected_priority == 'media' %}selected{% endif %}>Media</option>
+                            <option value="alta" {% if selected_priority == 'alta' %}selected{% endif %}>Alta</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">Fecha Desde</label>
+                        <input type="date" name="date_from" id="date_from" class="form-control" value="{{ selected_date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">Fecha Hasta</label>
+                        <input type="date" name="date_to" id="date_to" class="form-control" value="{{ selected_date_to }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_tasks }}</h4>
+                        <p class="card-text">Total Tareas</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-tasks fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ completed_tasks }}</h4>
+                        <p class="card-text">Completadas</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ pending_tasks }}</h4>
+                        <p class="card-text">Pendientes</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ in_progress_tasks }}</h4>
+                        <p class="card-text">En Progreso</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-play-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de tareas -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Tareas ({{ tasks|length }})
+                </h5>
+                <div>
+                    <a href="{{ url_for('reports.export_tasks_csv') }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-download me-1"></i>Exportar CSV
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if tasks %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Título</th>
+                                <th>Área</th>
+                                <th>Asignado a</th>
+                                <th>Estado</th>
+                                <th>Prioridad</th>
+                                <th>Archivos</th>
+                                <th>Fecha Límite</th>
+                                <th>Creado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>{{ task.id }}</td>
+                                <td>
+                                    <a href="{{ url_for('task.view', task_id=task.id) }}" class="text-decoration-none">
+                                        {{ task.title }}
+                                    </a>
+                                </td>
+                                <td>{{ task.area.name if task.area else 'N/A' }}</td>
+                                <td>{{ task.assignee.username if task.assignee else 'Sin asignar' }}</td>
+                                <td>
+                                    <span class="badge {{ task.get_status_badge_class() }}">
+                                        {{ task.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {{ task.get_priority_badge_class() }}">
+                                        {{ task.priority|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {{ task.get_display_uploaded_files() }}/{{ task.required_files }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if task.due_date %}
+                                        {{ task.due_date.strftime('%d/%m/%Y') }}
+                                        {% if task.is_overdue() %}
+                                            <span class="text-danger">
+                                                <i class="fas fa-exclamation-triangle" title="Vencida"></i>
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        Sin fecha
+                                    {% endif %}
+                                </td>
+                                <td>{{ task.created_at.strftime('%d/%m/%Y %H:%M') if task.created_at else 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No se encontraron tareas con los filtros aplicados.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

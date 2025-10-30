@@ -1,0 +1,113 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Gestión de Áreas - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-building me-2"></i>Gestión de Áreas
+            </h1>
+            <a href="{{ url_for('area.create') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Nueva Área
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th>Usuarios</th>
+                                <th>Tareas</th>
+                                <th>Estado</th>
+                                <th>Creado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for area in areas %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-building text-primary me-2"></i>
+                                        {{ area.name }}
+                                    </div>
+                                </td>
+                                <td>{{ area.description or 'Sin descripción' }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ area.get_user_count() }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ area.get_task_count() }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if area.is_active else 'danger' }}">
+                                        {{ 'Activo' if area.is_active else 'Inactivo' }}
+                                    </span>
+                                </td>
+                                <td>{{ area.created_at.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('area.view', area_id=area.id) }}" 
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('area.edit', area_id=area.id) }}" 
+                                           class="btn btn-outline-warning btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{{ url_for('area.assign_users', area_id=area.id) }}" 
+                                           class="btn btn-outline-info btn-sm">
+                                            <i class="fas fa-users"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger btn-sm" 
+                                                onclick="deleteArea({{ area.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteArea(areaId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta área?')) {
+        // Crear formulario para enviar POST
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("area.delete", area_id=0) }}'.replace('0', areaId);
+        
+        // Agregar token CSRF si es necesario
+        const csrfToken = document.querySelector('meta[name="csrf-token"]');
+        if (csrfToken) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = csrfToken.getAttribute('content');
+            form.appendChild(input);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

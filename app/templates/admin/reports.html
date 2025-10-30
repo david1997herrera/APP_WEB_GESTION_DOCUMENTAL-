@@ -1,0 +1,152 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Reportes - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-chart-bar me-2"></i>Reportes y Estadísticas
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Estadísticas por Área</h5>
+            </div>
+            <div class="card-body">
+                {% if areas_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Área</th>
+                                    <th>Usuarios</th>
+                                    <th>Total Tareas</th>
+                                    <th>Tareas Completadas</th>
+                                    <th>% Completado</th>
+                                    <th>Progreso</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stats in areas_stats %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-building text-primary me-2"></i>
+                                            {{ stats.area.name }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ stats.users_count }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ stats.total_tasks }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ stats.completed_tasks }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if stats.completion_rate == 100 else 'warning' if stats.completion_rate > 50 else 'danger' }}">
+                                            {{ stats.completion_rate }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="width: 150px; height: 20px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ stats.completion_rate }}%">
+                                                {{ stats.completion_rate }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No hay datos para mostrar</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos adicionales -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Distribución de Tareas por Estado</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="taskStatusChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Distribución de Usuarios por Rol</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="userRoleChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Gráfico de estado de tareas
+const taskStatusCtx = document.getElementById('taskStatusChart').getContext('2d');
+const taskStatusChart = new Chart(taskStatusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Pendientes', 'En Progreso', 'Completadas'],
+        datasets: [{
+            data: [{{ pending_tasks }}, 0, {{ total_tasks - pending_tasks }}],
+            backgroundColor: [
+                '#ffc107',
+                '#17a2b8',
+                '#28a745'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+
+// Gráfico de roles de usuarios
+const userRoleCtx = document.getElementById('userRoleChart').getContext('2d');
+const userRoleChart = new Chart(userRoleCtx, {
+    type: 'pie',
+    data: {
+        labels: ['Administradores', 'Escritura', 'Lectura'],
+        datasets: [{
+            data: [1, 0, 0], // Datos de ejemplo, se pueden obtener del backend
+            backgroundColor: [
+                '#dc3545',
+                '#007bff',
+                '#6c757d'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+</script>
+{% endblock %}

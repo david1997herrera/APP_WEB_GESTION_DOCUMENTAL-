@@ -1,0 +1,211 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Estadísticas de Archivos - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-chart-bar me-2"></i>Estadísticas de Archivos
+            </h1>
+            <a href="{{ url_for('files_repo.index') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i>Volver al Repositorio
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas generales -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_files }}</h4>
+                        <p class="card-text">Total Archivos</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ "%.1f"|format(total_size / 1024 / 1024) }} MB</h4>
+                        <p class="card-text">Tamaño Total</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hdd fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ area_stats|length }}</h4>
+                        <p class="card-text">Áreas Activas</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-building fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ recent_files }}</h4>
+                        <p class="card-text">Últimos 30 días</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Archivos por tipo -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Archivos por Tipo
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if file_types %}
+                    {% for file_type, count in file_types.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file me-2 text-muted"></i>
+                            <span class="text-capitalize">{{ file_type }}</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary me-2">{{ count }}</span>
+                            <small class="text-muted">
+                                {{ "%.1f"|format((count / total_files) * 100) }}%
+                            </small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 6px;">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: {{ (count / total_files) * 100 }}%"></div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">No hay datos disponibles</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Archivos por área -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-building me-2"></i>Archivos por Área
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if area_stats %}
+                    {% for stat in area_stats %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-folder me-2 text-muted"></i>
+                            <span>{{ stat.area.name }}</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-2">{{ stat.file_count }}</span>
+                            <small class="text-muted">
+                                {{ "%.1f"|format(stat.total_size / 1024) }} KB
+                            </small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 6px;">
+                        <div class="progress-bar bg-info" role="progressbar" 
+                             style="width: {{ (stat.file_count / total_files) * 100 if total_files > 0 else 0 }}%"></div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">No hay datos disponibles</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top usuarios -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-users me-2"></i>Top Usuarios por Archivos Subidos
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if user_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Archivos</th>
+                                    <th>Tamaño Total</th>
+                                    <th>Promedio por Archivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in user_stats[:10] %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user me-2 text-muted"></i>
+                                            <div>
+                                                <div class="fw-bold">{{ stat.user.username }}</div>
+                                                <small class="text-muted">{{ stat.user.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ stat.file_count }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ "%.1f"|format(stat.total_size / 1024) }} KB</small>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {{ "%.1f"|format(stat.total_size / stat.file_count / 1024) if stat.file_count > 0 else 0 }} KB
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No hay datos disponibles</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

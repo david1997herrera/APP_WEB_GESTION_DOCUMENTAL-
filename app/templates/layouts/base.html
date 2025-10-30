@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Gestión Documental{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navegación -->
+    {% if current_user.is_authenticated %}
+    <!-- Top Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container-fluid">
+            <button class="btn btn-outline-light me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+                <i class="fas fa-bars"></i>
+            </button>
+            <a class="navbar-brand" href="{{ url_for('admin.dashboard') if current_user.is_admin() else url_for('task.my_tasks') }}">
+                <i class="fas fa-file-alt"></i>
+                Gestión Documental
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle text-white" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle"></i> {{ current_user.username }}
+                        <span class="badge bg-light text-dark ms-1">{{ current_user.role|title }}</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                            <i class="fas fa-user"></i> Mi Perfil
+                        </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
+                                    <i class="fas fa-cog"></i> Configuración
+                                </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <div class="offcanvas offcanvas-start bg-dark text-white" tabindex="-1" id="sidebar" style="width: 280px;">
+        <div class="offcanvas-header border-bottom border-secondary">
+            <h5 class="offcanvas-title">
+                <i class="fas fa-file-alt text-primary"></i>
+                Gestión Documental
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <nav class="nav flex-column">
+                <!-- Dashboard -->
+                <a class="nav-link px-3 py-3 border-bottom border-secondary" href="{{ url_for('admin.dashboard') }}">
+                    <i class="fas fa-tachometer-alt me-3"></i>
+                    Dashboard
+                </a>
+                
+                <!-- Gestión de Usuarios -->
+                <div class="nav-item">
+                    <a class="nav-link px-3 py-2 text-white" data-bs-toggle="collapse" href="#usersMenu" role="button">
+                        <i class="fas fa-users me-3"></i>
+                        Usuarios
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse" id="usersMenu">
+                        <div class="bg-dark">
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('admin.users') }}">
+                                <i class="fas fa-list me-2"></i> Lista de Usuarios
+                            </a>
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('admin.users') }}?create=1">
+                                <i class="fas fa-user-plus me-2"></i> Crear Usuario
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Gestión de Áreas -->
+                <div class="nav-item">
+                    <a class="nav-link px-3 py-2 text-white" data-bs-toggle="collapse" href="#areasMenu" role="button">
+                        <i class="fas fa-folder me-3"></i>
+                        Áreas
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse" id="areasMenu">
+                        <div class="bg-dark">
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('admin.areas') }}">
+                                <i class="fas fa-list me-2"></i> Lista de Áreas
+                            </a>
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('area.create') }}">
+                                <i class="fas fa-folder-plus me-2"></i> Crear Área
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Gestión de Tareas -->
+                <div class="nav-item">
+                    <a class="nav-link px-3 py-2 text-white" data-bs-toggle="collapse" href="#tasksMenu" role="button">
+                        <i class="fas fa-tasks me-3"></i>
+                        Tareas
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse" id="tasksMenu">
+                        <div class="bg-dark">
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('admin.tasks') }}">
+                                <i class="fas fa-list me-2"></i> Lista de Tareas
+                            </a>
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('task.create') }}">
+                                <i class="fas fa-plus-circle me-2"></i> Crear Tarea
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Repositorio de Archivos -->
+                <a class="nav-link px-3 py-3 border-bottom border-secondary" href="{{ url_for('files_repo.index') }}">
+                    <i class="fas fa-archive me-3"></i>
+                    Archivos
+                </a>
+                
+                <!-- Reportes -->
+                <a class="nav-link px-3 py-3 border-bottom border-secondary" href="{{ url_for('reports.index') }}">
+                    <i class="fas fa-chart-bar me-3"></i>
+                    Reportes
+                </a>
+                
+                        <!-- Configuración -->
+                        <a class="nav-link px-3 py-3 border-bottom border-secondary" href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-cog me-3"></i>
+                            Configuración
+                        </a>
+                
+                <!-- Logout -->
+                <a class="nav-link px-3 py-3 text-danger" href="{{ url_for('auth.logout') }}">
+                    <i class="fas fa-sign-out-alt me-3"></i>
+                    Cerrar Sesión
+                </a>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Breadcrumb -->
+    {% block breadcrumb %}{% endblock %}
+
+    <!-- Contenido principal -->
+    <main class="{% if current_user.is_authenticated %}container-fluid py-4{% endif %}">
+        <!-- Alertas -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    {% if current_user.is_authenticated %}
+    <footer class="bg-light text-center text-muted py-3 mt-5">
+        <div class="container">
+            <p class="mb-0">
+                <i class="fas fa-file-alt"></i>
+                Sistema de Gestión Documental - © 2024
+            </p>
+        </div>
+    </footer>
+    {% endif %}
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            <!-- Custom JS -->
+            <!-- <script src="{{ url_for('static', filename='js/main.js') }}"></script> -->
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

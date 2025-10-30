@@ -1,0 +1,367 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Repositorio de Archivos - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-archive me-2"></i>Repositorio de Archivos
+            </h1>
+            <div class="btn-group">
+                <a href="{{ url_for('files_repo.stats') }}" class="btn btn-outline-info">
+                    <i class="fas fa-chart-bar me-1"></i>Estadísticas
+                </a>
+                <button class="btn btn-outline-success" onclick="bulkDownload()">
+                    <i class="fas fa-download me-1"></i>Descargar Seleccionados
+                </button>
+                <button class="btn btn-outline-danger" onclick="bulkDelete()">
+                    <i class="fas fa-trash me-1"></i>Eliminar Seleccionados
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="area_id" class="form-label">Área</label>
+                        <select class="form-select" id="area_id" name="area_id">
+                            <option value="">Todas las áreas</option>
+                            {% for area in areas %}
+                            <option value="{{ area.id }}" {% if current_filters.area_id == area.id %}selected{% endif %}>
+                                {{ area.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="user_id" class="form-label">Usuario</label>
+                        <select class="form-select" id="user_id" name="user_id">
+                            <option value="">Todos los usuarios</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if current_filters.user_id == user.id %}selected{% endif %}>
+                                {{ user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="file_type" class="form-label">Tipo</label>
+                        <select class="form-select" id="file_type" name="file_type">
+                            <option value="">Todos los tipos</option>
+                            <option value="image" {% if current_filters.file_type == 'image' %}selected{% endif %}>Imágenes</option>
+                            <option value="application" {% if current_filters.file_type == 'application' %}selected{% endif %}>Documentos</option>
+                            <option value="text" {% if current_filters.file_type == 'text' %}selected{% endif %}>Texto</option>
+                            <option value="video" {% if current_filters.file_type == 'video' %}selected{% endif %}>Videos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_from" class="form-label">Desde</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ current_filters.date_from }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_to" class="form-label">Hasta</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ current_filters.date_to }}">
+                    </div>
+                    <div class="col-12">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="search" class="form-label">Buscar</label>
+                                <input type="text" class="form-control" id="search" name="search" 
+                                       placeholder="Buscar por nombre de archivo..." value="{{ current_filters.search }}">
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="btn-group w-100">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-1"></i>Filtrar
+                                    </button>
+                                    <a href="{{ url_for('files_repo.index') }}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-times me-1"></i>Limpiar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas rápidas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_files }}</h4>
+                        <p class="card-text">Total Archivos</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ "%.1f"|format(total_size / 1024 / 1024) }} MB</h4>
+                        <p class="card-text">Tamaño Total</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hdd fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ areas|length }}</h4>
+                        <p class="card-text">Áreas</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-building fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ files|length }}</h4>
+                        <p class="card-text">Resultados</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-list fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de archivos -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Archivos
+                    {% if files %}
+                        <span class="badge bg-primary ms-2">{{ files|length }}</span>
+                    {% endif %}
+                </h6>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                    <label class="form-check-label" for="selectAll">
+                        Seleccionar Todos
+                    </label>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" class="form-check-input" onchange="toggleSelectAll()">
+                                    </th>
+                                    <th>Archivo</th>
+                                    <th>Área</th>
+                                    <th>Usuario</th>
+                                    <th>Tarea</th>
+                                    <th>Tamaño</th>
+                                    <th>Fecha</th>
+                                    <th width="120">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" class="form-check-input file-checkbox" value="{{ file.id }}">
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="{{ file.get_icon_class() }} me-2 text-muted"></i>
+                                            <div>
+                                                <div class="fw-bold">{{ file.original_filename }}</div>
+                                                <small class="text-muted">{{ file.mimetype }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ file.task.area.name }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ file.uploader.username if file.uploader else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('task.view', task_id=file.task.id) }}" class="text-decoration-none">
+                                            {{ file.task.title[:30] }}{% if file.task.title|length > 30 %}...{% endif %}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <small>{{ "%.1f"|format(file.file_size / 1024) }} KB</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ file.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('files_repo.download', file_id=file.id) }}" 
+                                               class="btn btn-outline-primary" title="Descargar">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <button class="btn btn-outline-danger" 
+                                                    onclick="deleteFile({{ file.id }})" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No se encontraron archivos</h5>
+                        <p class="text-muted">Intenta ajustar los filtros de búsqueda</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formularios ocultos para acciones masivas -->
+<form id="bulkDownloadForm" method="POST" action="{{ url_for('files_repo.bulk_download') }}" style="display: none;">
+    <div id="bulkDownloadInputs"></div>
+</form>
+
+<form id="bulkDeleteForm" method="POST" action="{{ url_for('files_repo.bulk_delete') }}" style="display: none;">
+    <div id="bulkDeleteInputs"></div>
+</form>
+
+<!-- Modal de confirmación -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que quieres eliminar este archivo? Esta acción no se puede deshacer.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.file-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+}
+
+function bulkDownload() {
+    const selectedFiles = document.querySelectorAll('.file-checkbox:checked');
+    if (selectedFiles.length === 0) {
+        alert('Por favor selecciona al menos un archivo');
+        return;
+    }
+    
+    const form = document.getElementById('bulkDownloadForm');
+    const container = document.getElementById('bulkDownloadInputs');
+    container.innerHTML = '';
+    
+    selectedFiles.forEach(checkbox => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'file_ids';
+        input.value = checkbox.value;
+        container.appendChild(input);
+    });
+    
+    form.submit();
+}
+
+function bulkDelete() {
+    const selectedFiles = document.querySelectorAll('.file-checkbox:checked');
+    if (selectedFiles.length === 0) {
+        alert('Por favor selecciona al menos un archivo');
+        return;
+    }
+    
+    if (!confirm(`¿Estás seguro de que quieres eliminar ${selectedFiles.length} archivo(s)?`)) {
+        return;
+    }
+    
+    const form = document.getElementById('bulkDeleteForm');
+    const container = document.getElementById('bulkDeleteInputs');
+    container.innerHTML = '';
+    
+    selectedFiles.forEach(checkbox => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'file_ids';
+        input.value = checkbox.value;
+        container.appendChild(input);
+    });
+    
+    form.submit();
+}
+
+function deleteFile(fileId) {
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const confirmBtn = document.getElementById('confirmDelete');
+    
+    confirmBtn.onclick = function() {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{{ url_for('files_repo.delete', file_id=0) }}`.replace('0', fileId);
+        document.body.appendChild(form);
+        form.submit();
+    };
+    
+    modal.show();
+}
+</script>
+{% endblock %}

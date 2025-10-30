@@ -1,0 +1,78 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Mi Perfil - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user me-2"></i>Mi Perfil
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="avatar-lg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 100px; height: 100px; font-size: 2rem;">
+                            {{ user.username[0].upper() }}
+                        </div>
+                        <h4>{{ user.username }}</h4>
+                        <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'escritura' else 'info' }}">
+                            {{ user.role.title() }}
+                        </span>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <h6>Información Personal</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Usuario:</strong> {{ user.username }}</li>
+                            <li><strong>Email:</strong> {{ user.email }}</li>
+                            <li><strong>Rol:</strong> {{ user.role.title() }}</li>
+                            <li><strong>Estado:</strong> 
+                                <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">
+                                    {{ 'Activo' if user.is_active else 'Inactivo' }}
+                                </span>
+                            </li>
+                            <li><strong>Miembro desde:</strong> {{ user.created_at.strftime('%d/%m/%Y') }}</li>
+                        </ul>
+                        
+                        {% if user.area_assignments %}
+                        <h6 class="mt-3">Áreas Asignadas</h6>
+                        <div class="d-flex flex-wrap">
+                            {% for assignment in user.area_assignments %}
+                            <span class="badge bg-secondary me-1 mb-1">{{ assignment.area.name }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Estadísticas</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="h4 text-primary">{{ user.assigned_tasks|length }}</div>
+                                <small class="text-muted">Tareas Asignadas</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="h4 text-success">{{ user.uploaded_files|length }}</div>
+                                <small class="text-muted">Archivos Subidos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <div class="h4 text-info">{{ user.created_tasks|length }}</div>
+                                <small class="text-muted">Tareas Creadas</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

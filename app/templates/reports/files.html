@@ -1,0 +1,304 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Reporte de Archivos - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-file me-2"></i>Reporte de Archivos
+        </h1>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="area_id" class="form-label">Área</label>
+                        <select name="area_id" id="area_id" class="form-select">
+                            <option value="">Todas las áreas</option>
+                            {% for area in areas %}
+                            <option value="{{ area.id }}" {% if selected_area_id == area.id %}selected{% endif %}>
+                                {{ area.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="file_type" class="form-label">Tipo de Archivo</label>
+                        <select name="file_type" id="file_type" class="form-select">
+                            <option value="">Todos los tipos</option>
+                            <option value="image" {% if selected_file_type == 'image' %}selected{% endif %}>Imágenes</option>
+                            <option value="application" {% if selected_file_type == 'application' %}selected{% endif %}>Documentos</option>
+                            <option value="text" {% if selected_file_type == 'text' %}selected{% endif %}>Texto</option>
+                            <option value="video" {% if selected_file_type == 'video' %}selected{% endif %}>Video</option>
+                            <option value="audio" {% if selected_file_type == 'audio' %}selected{% endif %}>Audio</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_from" class="form-label">Fecha Desde</label>
+                        <input type="date" name="date_from" id="date_from" class="form-control" value="{{ selected_date_from }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="date_to" class="form-label">Fecha Hasta</label>
+                        <input type="date" name="date_to" id="date_to" class="form-control" value="{{ selected_date_to }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_files }}</h4>
+                        <p class="card-text">Total Archivos</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_size_mb }} MB</h4>
+                        <p class="card-text">Tamaño Total</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hdd fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ file_types|length }}</h4>
+                        <p class="card-text">Tipos Diferentes</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-tags fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ areas|length }}</h4>
+                        <p class="card-text">Áreas con Archivos</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-building fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Distribución por tipo -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Distribución por Tipo de Archivo
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if file_types %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Cantidad</th>
+                                <th>Porcentaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for type_name, count in file_types.items() %}
+                            <tr>
+                                <td>
+                                    <i class="fas fa-file me-1"></i>
+                                    {{ type_name|title }}
+                                </td>
+                                <td>{{ count }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" 
+                                             role="progressbar" 
+                                             style="width: {{ (count / total_files * 100)|round(1) }}%"
+                                             aria-valuenow="{{ (count / total_files * 100)|round(1) }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ (count / total_files * 100)|round(1) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No hay archivos para mostrar.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Archivos por Área
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if area_files %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Área</th>
+                                <th>Cantidad</th>
+                                <th>Tamaño</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for area_name, stats in area_files.items() %}
+                            <tr>
+                                <td>{{ area_name }}</td>
+                                <td>{{ stats.count }}</td>
+                                <td>{{ stats.size_mb }} MB</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No hay archivos para mostrar.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de archivos -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Archivos ({{ files|length }})
+                </h5>
+                <div>
+                    <a href="{{ url_for('reports.export_files_csv') }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-download me-1"></i>Exportar CSV
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if files %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Tamaño</th>
+                                <th>Área</th>
+                                <th>Tarea</th>
+                                <th>Subido por</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in files %}
+                            <tr>
+                                <td>{{ file.id }}</td>
+                                <td>
+                                    <i class="{{ file.get_icon_class() }} me-1"></i>
+                                    {{ file.original_filename }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {{ file.file_type.split('/')[0]|title }}
+                                    </span>
+                                </td>
+                                <td>{{ file.get_file_size_mb() }} MB</td>
+                                <td>
+                                    {% if file.task and file.task.area %}
+                                        {{ file.task.area.name }}
+                                    {% else %}
+                                        <span class="text-muted">Sin área</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if file.task %}
+                                        <a href="{{ url_for('task.view', task_id=file.task.id) }}" class="text-decoration-none">
+                                            {{ file.task.title }}
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">Sin tarea</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ file.uploader.username if file.uploader else 'N/A' }}</td>
+                                <td>{{ file.uploaded_at.strftime('%d/%m/%Y %H:%M') if file.uploaded_at else 'N/A' }}</td>
+                                <td>
+                                    <a href="{{ url_for('file.download', file_id=file.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No se encontraron archivos con los filtros aplicados.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
