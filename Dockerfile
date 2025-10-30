@@ -25,7 +25,8 @@ EXPOSE 3110
 
 # Copiar entrypoint
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Normalizar fin de línea (CRLF -> LF) y dar permisos de ejecución
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Comando para ejecutar la aplicación
 ENTRYPOINT ["/entrypoint.sh"]
