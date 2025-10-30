@@ -20,7 +20,7 @@ class EmailService:
                 recipients=[to],
                 body=body,
                 html=html,
-                sender=os.getenv('EMAIL_SENDER', 'estadisticatessa@gmail.com')
+                sender=os.getenv('EMAIL_SENDER', 'harvest.hero.app@gmail.com')
             )
             mail.send(msg)
             print(f"✅ Email enviado exitosamente a: {to}")

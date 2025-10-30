@@ -108,8 +108,8 @@ El sistema utiliza las siguientes variables de entorno:
 ```env
 FLASK_ENV=development
 DATABASE_URL=postgresql://postgres:password@db:5432/gestion_documental
-EMAIL_SENDER=estadisticatessa@gmail.com
-EMAIL_PASSWORD=rxcd epqr gebp myhj
+EMAIL_SENDER=harvest.hero.app@gmail.com
+EMAIL_PASSWORD=bhyu xsdt vmyl pejo
 MAIL_SERVER=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USE_TLS=True

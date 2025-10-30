@@ -21,8 +21,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configuración de email
-EMAIL_SENDER = os.getenv('EMAIL_SENDER', "estadisticatessa@gmail.com")
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', "rxcd epqr gebp myhj")
+EMAIL_SENDER = os.getenv('EMAIL_SENDER', "harvest.hero.app@gmail.com")
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', "bhyu xsdt vmyl pejo")
 
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
