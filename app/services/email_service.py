@@ -5,6 +5,7 @@ from app.config import db
 from app.models.user import User
 from app.models.task import Task
 from app.models.area import Area
+from app.models.purchase_requisition import PurchaseRequisition
 
 class EmailService:
     """Servicio para envío de notificaciones por email"""
@@ -446,4 +447,137 @@ Sistema de Gestión Documental
             
         except Exception as e:
             print(f"Error notificando tarea vencida: {e}")
+            return False
+
+    @staticmethod
+    def notify_purchase_requisition_created(requisition_id):
+        """Notificar al destinatario (o administradores) cuando se crea una requisición de compra."""
+        try:
+            requisition = PurchaseRequisition.query.get(requisition_id)
+            if not requisition:
+                return False
+
+            subject = f"🛒 Nueva requisición de compra: {requisition.title}"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+
+            amount_text = f"${requisition.amount:,.2f}" if requisition.amount is not None else "No especificado"
+            requester_name = requisition.requester.username if requisition.requester else "N/D"
+            target = requisition.target_user
+
+            # Destinatario principal: target_user; si no hay, se envía a admins
+            body = f"""
+Hola {target.username if target else 'Administrador'},
+
+Se ha enviado una nueva requisición de compra.
+
+🧾 Título: {requisition.title}
+👤 Solicitante: {requester_name}
+💰 Monto estimado: {amount_text}
+📝 Descripción: {requisition.description or 'Sin descripción'}
+📅 Fecha: {requisition.created_at.strftime('%d/%m/%Y %H:%M') if requisition.created_at else 'N/D'}
+
+Puedes revisar la requisición en: {base_url}/requisitions/{requisition_id}
+
+Saludos,
+Sistema de Gestión Documental
+            """
+
+            html = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #3498db;">🛒 Nueva requisición de compra</h2>
+                <p>Hola <strong>{target.username if target else 'Administrador'}</strong>,</p>
+                <p>Se ha enviado una nueva requisición de compra:</p>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">{requisition.title}</h3>
+                    <p><strong>👤 Solicitante:</strong> {requester_name}</p>
+                    <p><strong>💰 Monto estimado:</strong> {amount_text}</p>
+                    <p><strong>📝 Descripción:</strong> {requisition.description or 'Sin descripción'}</p>
+                    <p><strong>📅 Fecha:</strong> {requisition.created_at.strftime('%d/%m/%Y %H:%M') if requisition.created_at else 'N/D'}</p>
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{base_url}/requisitions/{requisition_id}" 
+                       style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
+                        Ver Requisición
+                    </a>
+                </div>
+
+                <p style="color: #7f8c8d; font-size: 12px;">
+                    Saludos,<br>
+                    Sistema de Gestión Documental
+                </p>
+            </div>
+            """
+
+            if target and target.email:
+                EmailService.send_email(target.email, subject, body, html)
+            else:
+                admin_users = User.query.filter_by(role='admin').all()
+                for admin in admin_users:
+                    if admin.email:
+                        EmailService.send_email(admin.email, subject, body, html)
+
+            return True
+        except Exception as e:
+            print(f"Error notificando requisición de compra: {e}")
+            return False
+
+    @staticmethod
+    def notify_purchase_requisition_status_changed(requisition_id):
+        """Notificar al solicitante cuando cambia el estado de su requisición."""
+        try:
+            requisition = PurchaseRequisition.query.get(requisition_id)
+            if not requisition or not requisition.requester or not requisition.requester.email:
+                return False
+
+            user = requisition.requester
+            subject = f"🛒 Estado actualizado de tu requisición: {requisition.title}"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            amount_text = f"${requisition.amount:,.2f}" if requisition.amount is not None else "No especificado"
+
+            body = f"""
+Hola {user.username},
+
+El estado de tu requisición de compra ha cambiado.
+
+🧾 Título: {requisition.title}
+💰 Monto estimado: {amount_text}
+📊 Nuevo estado: {requisition.status.title()}
+
+Puedes ver los detalles en: {base_url}/requisitions/{requisition_id}
+
+Saludos,
+Sistema de Gestión Documental
+            """
+
+            html = f"""
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #3498db;">🛒 Estado actualizado de tu requisición</h2>
+                <p>Hola <strong>{user.username}</strong>,</p>
+                <p>El estado de tu requisición de compra ha cambiado:</p>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">{requisition.title}</h3>
+                    <p><strong>💰 Monto estimado:</strong> {amount_text}</p>
+                    <p><strong>📊 Nuevo estado:</strong> {requisition.status.title()}</p>
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{base_url}/requisitions/{requisition_id}" 
+                       style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
+                        Ver Requisición
+                    </a>
+                </div>
+
+                <p style="color: #7f8c8d; font-size: 12px;">
+                    Saludos,<br>
+                    Sistema de Gestión Documental
+                </p>
+            </div>
+            """
+
+            return EmailService.send_email(user.email, subject, body, html)
+        except Exception as e:
+            print(f"Error notificando cambio de estado de requisición: {e}")
             return False

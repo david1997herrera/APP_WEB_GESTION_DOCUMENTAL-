@@ -1,0 +1,204 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ requisition.title }} - Requisición de Compra{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h1 class="h3 mb-0">{{ requisition.title }}</h1>
+        {% if current_user.id == requisition.target_user_id %}
+        <div class="btn-group">
+            {% if requisition.status == 'enviada' %}
+            <form method="POST" action="{{ url_for('requisition.mark_reviewed', requisition_id=requisition.id) }}" class="me-1">
+                <button type="submit" class="btn btn-outline-info">
+                    <i class="fas fa-search me-1"></i>Marcar como revisada
+                </button>
+            </form>
+            {% endif %}
+            {% if requisition.status in ['enviada', 'revisada'] %}
+            <form method="POST" action="{{ url_for('requisition.mark_approved', requisition_id=requisition.id) }}">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-check me-1"></i>Aprobar
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Detalles de la Requisición</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6>Descripción</h6>
+                    <p class="text-muted">{{ requisition.description or 'Sin descripción' }}</p>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Información General</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Solicitante:</strong> {{ requisition.requester.username if requisition.requester else 'N/D' }}</li>
+                            <li><strong>Dirigida a:</strong> {{ requisition.target_user.username if requisition.target_user else 'No asignado' }}</li>
+                            <li><strong>Monto estimado:</strong>
+                                {% if requisition.amount is not none %}
+                                    ${{ '%.2f'|format(requisition.amount) }}
+                                {% else %}
+                                    <span class="text-muted">No especificado</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>Estado actual:</strong>
+                                <span class="badge {{ requisition.get_status_badge_class() }}">
+                                    {{ requisition.status.title() }}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Fechas</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Enviada:</strong> {{ requisition.created_at.strftime('%d/%m/%Y %H:%M') if requisition.created_at else '-' }}</li>
+                            <li><strong>Revisada:</strong> {{ requisition.reviewed_at.strftime('%d/%m/%Y %H:%M') if requisition.reviewed_at else '-' }}</li>
+                            <li><strong>Aprobada:</strong> {{ requisition.approved_at.strftime('%d/%m/%Y %H:%M') if requisition.approved_at else '-' }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Línea de tiempo -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Flujo de Aprobación</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-step {% if requisition.status in ['enviada','revisada','aprobada'] %}active{% endif %}">
+                        <div class="timeline-icon">
+                            <i class="fas fa-paper-plane"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6>Enviada</h6>
+                            <p class="mb-0 small text-muted">
+                                {{ requisition.created_at.strftime('%d/%m/%Y %H:%M') if requisition.created_at else '-' }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="timeline-step {% if requisition.status in ['revisada','aprobada'] %}active{% endif %}">
+                        <div class="timeline-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6>Revisada</h6>
+                            <p class="mb-0 small text-muted">
+                                {% if requisition.reviewed_at %}
+                                    {{ requisition.reviewed_at.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    Pendiente
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="timeline-step {% if requisition.status == 'aprobada' %}active{% endif %}">
+                        <div class="timeline-icon">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6>Aprobada</h6>
+                            <p class="mb-0 small text-muted">
+                                {% if requisition.approved_at %}
+                                    {{ requisition.approved_at.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    Pendiente
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Resumen</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>Solicitante:</strong>
+                    {{ requisition.requester.username if requisition.requester else 'N/D' }}
+                </p>
+                {% if requisition.reviewer %}
+                <p class="mb-2">
+                    <strong>Revisada por:</strong>
+                    {{ requisition.reviewer.username }}
+                </p>
+                {% endif %}
+                {% if requisition.approver %}
+                <p class="mb-2">
+                    <strong>Aprobada por:</strong>
+                    {{ requisition.approver.username }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    margin-top: 10px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 22px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #e9ecef;
+    z-index: 1;
+}
+
+.timeline-step {
+    position: relative;
+    text-align: center;
+    flex: 1;
+    z-index: 2;
+}
+
+.timeline-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 8px;
+    border-radius: 50%;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+}
+
+.timeline-step.active .timeline-icon {
+    background: #0d6efd;
+    color: #fff;
+}
+
+.timeline-content h6 {
+    margin-bottom: 2px;
+}
+</style>
+{% endblock %}
+

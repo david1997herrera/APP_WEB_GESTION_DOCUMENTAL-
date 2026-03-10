@@ -133,6 +133,30 @@
                     <i class="fas fa-archive me-3"></i>
                     Archivos
                 </a>
+
+                <!-- Requisiciones de compra -->
+                <div class="nav-item">
+                    <a class="nav-link px-3 py-2 text-white" data-bs-toggle="collapse" href="#requisitionMenu" role="button">
+                        <i class="fas fa-receipt me-3"></i>
+                        Requisiciones
+                        <i class="fas fa-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse" id="requisitionMenu">
+                        <div class="bg-dark">
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('requisition.my') }}">
+                                <i class="fas fa-user me-2"></i> Mis Requisiciones
+                            </a>
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('requisition.assigned') }}">
+                                <i class="fas fa-inbox me-2"></i> Requisiciones asignadas
+                            </a>
+                            {% if current_user.is_admin() %}
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('requisition.index') }}">
+                                <i class="fas fa-list me-2"></i> Todas las Requisiciones
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Reportes -->
                 <a class="nav-link px-3 py-3 border-bottom border-secondary" href="{{ url_for('reports.index') }}">

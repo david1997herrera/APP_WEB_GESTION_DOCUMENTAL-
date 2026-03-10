@@ -68,6 +68,7 @@ from app.controllers.file_controller import file_bp
 from app.controllers.files_repository_controller import files_repo_bp
 from app.controllers.reports_controller import reports_bp
 from app.controllers.scheduled_task_controller import scheduled_task_bp, process_scheduled_tasks
+from app.controllers.purchase_requisition_controller import requisition_bp
 
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(admin_bp, url_prefix='/admin')
@@ -77,6 +78,7 @@ app.register_blueprint(file_bp, url_prefix='/files')
 app.register_blueprint(files_repo_bp, url_prefix='/files-repo')
 app.register_blueprint(reports_bp, url_prefix='/reports')
 app.register_blueprint(scheduled_task_bp, url_prefix='/scheduled-tasks')
+app.register_blueprint(requisition_bp, url_prefix='/requisitions')
 
 
 def start_scheduler():
