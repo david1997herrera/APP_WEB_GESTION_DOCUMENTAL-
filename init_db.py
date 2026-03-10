@@ -16,4 +16,4 @@ if __name__ == '__main__':
     print("\n🚀 Puedes acceder a la aplicación en: http://localhost:3110")
     print("👤 Usuario: Admin")
     print("🔑 Contraseña: uml57vli60")
-    print("📧 Email: david.herrera@tessacorporation.com")
+    print("📧 Email: david.herrera1@live.com")

@@ -196,7 +196,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 ## 📞 Soporte
 
 Para soporte técnico o preguntas, contactar a:
-- Email: david.herrera@tessacorporation.com
+- Email: david.herrera1@live.com
 - Usuario admin: Admin / uml57vli60
 
 ---

@@ -77,7 +77,7 @@ def init_db():
         if not admin_user:
             admin_user = User(
                 username='Admin',
-                email='david.herrera@tessacorporation.com',
+                email='david.herrera1@live.com',
                 role='admin',
                 is_active=True
             )

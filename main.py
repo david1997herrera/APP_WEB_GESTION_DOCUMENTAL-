@@ -116,7 +116,7 @@ def init_db():
                 print("👤 Creando usuario administrador por defecto...")
                 admin_user = User(
                     username='Admin',
-                    email='david.herrera@tessacorporation.com',
+                    email='david.herrera1@live.com',
                     role='admin',
                     is_active=True
                 )
