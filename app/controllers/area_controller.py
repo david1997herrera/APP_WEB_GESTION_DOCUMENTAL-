@@ -117,15 +117,18 @@ def assign_users(area_id):
     if request.method == 'POST':
         user_ids = request.form.getlist('user_ids')
         
-        # Eliminar asignaciones existentes
-        AreaUser.query.filter_by(area_id=area_id).delete()
-        
-        # Crear nuevas asignaciones
+        # Obtener asignaciones actuales para no duplicar ni eliminar las existentes
+        current_assignments = AreaUser.query.filter_by(area_id=area_id).all()
+        current_user_ids = {au.user_id for au in current_assignments}
+
+        # Crear solo las nuevas asignaciones sin borrar las anteriores
         for user_id in user_ids:
-            area_user = AreaUser(area_id=area_id, user_id=user_id)
-            db.session.add(area_user)
-            # Notificar asignación a área
-            EmailService.notify_user_assigned_to_area(user_id, area_id)
+            user_id_int = int(user_id)
+            if user_id_int not in current_user_ids:
+                area_user = AreaUser(area_id=area_id, user_id=user_id_int)
+                db.session.add(area_user)
+                # Notificar nueva asignación a área
+                EmailService.notify_user_assigned_to_area(user_id_int, area_id)
         
         try:
             db.session.commit()
@@ -144,6 +147,28 @@ def assign_users(area_id):
                          area=area, 
                          available_users=available_users, 
                          assigned_users=assigned_users)
+
+@area_bp.route('/<int:area_id>/remove-user/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def remove_user(area_id, user_id):
+    """Quitar la asignación de un usuario a un área"""
+    area = Area.query.get_or_404(area_id)
+    
+    assignment = AreaUser.query.filter_by(area_id=area_id, user_id=user_id).first()
+    if not assignment:
+        flash('La asignación no existe', 'error')
+        return redirect(url_for('area.assign_users', area_id=area_id))
+    
+    try:
+        db.session.delete(assignment)
+        db.session.commit()
+        flash('Usuario removido del área exitosamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error al remover el usuario del área', 'error')
+    
+    return redirect(url_for('area.assign_users', area_id=area_id))
 
 @area_bp.route('/<int:area_id>/delete', methods=['POST'])
 @login_required

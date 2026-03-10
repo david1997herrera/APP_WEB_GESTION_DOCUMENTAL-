@@ -137,12 +137,12 @@ def download(file_id):
             flash('No tienes permisos para descargar este archivo', 'error')
             return redirect(url_for('task.my_tasks'))
     
-    if not os.path.exists(file_record.path):
+    if not os.path.exists(file_record.file_path):
         flash('El archivo no existe en el servidor', 'error')
         return redirect(url_for('admin.dashboard'))
     
     return send_file(
-        file_record.path,
+        file_record.file_path,
         as_attachment=True,
         download_name=file_record.original_filename,
         mimetype=file_record.file_type
@@ -169,8 +169,8 @@ def delete(file_id):
     
     try:
         # Eliminar archivo físico
-        if os.path.exists(file_record.path):
-            os.remove(file_record.path)
+        if os.path.exists(file_record.file_path):
+            os.remove(file_record.file_path)
         
         # Eliminar registro de la base de datos
         db.session.delete(file_record)

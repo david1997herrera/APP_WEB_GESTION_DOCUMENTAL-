@@ -1,5 +1,6 @@
 from flask_mail import Message
 from flask import current_app
+import os
 from app.config import db
 from app.models.user import User
 from app.models.task import Task
@@ -40,6 +41,7 @@ class EmailService:
                 return False
             
             subject = f"📋 Nueva tarea asignada: {task.title}"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
             body = f"""
 Hola {user.username},
 
@@ -52,7 +54,7 @@ Se te ha asignado una nueva tarea:
 📊 Archivos requeridos: {task.required_files}
 ⚡ Prioridad: {task.priority.title()}
 
-Puedes ver la tarea en: http://localhost:3110/tasks/{task_id}
+Puedes ver la tarea en: {base_url}/tasks/{task_id}
 
 Saludos,
 Sistema de Gestión Documental
@@ -74,7 +76,7 @@ Sistema de Gestión Documental
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:3110/tasks/{task_id}" 
+                    <a href="{base_url}/tasks/{task_id}" 
                        style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
                         Ver Tarea
                     </a>
@@ -105,6 +107,7 @@ Sistema de Gestión Documental
             creator = User.query.get(task.created_by)
             if creator and creator.email:
                 subject = f"✅ Tarea completada: {task.title}"
+                base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
                 body = f"""
 Hola {creator.username},
 
@@ -116,7 +119,7 @@ La tarea "{task.title}" ha sido completada.
 📊 Archivos subidos: {task.uploaded_files}/{task.required_files}
 ✅ Completada el: {task.completed_at.strftime('%d/%m/%Y %H:%M')}
 
-Puedes ver la tarea en: http://localhost:3110/tasks/{task_id}
+Puedes ver la tarea en: {base_url}/tasks/{task_id}
 
 Saludos,
 Sistema de Gestión Documental
@@ -137,7 +140,7 @@ Sistema de Gestión Documental
                     </div>
                     
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="http://localhost:3110/tasks/{task_id}" 
+                        <a href="{base_url}/tasks/{task_id}" 
                            style="background: #27ae60; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
                             Ver Tarea
                         </a>
@@ -163,6 +166,7 @@ Sistema de Gestión Documental
         """Notificar cuando se crea un nuevo usuario"""
         try:
             subject = f"👤 Cuenta creada - Sistema de Gestión Documental"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
             body = f"""
 Hola {username},
 
@@ -173,7 +177,7 @@ Se ha creado tu cuenta en el Sistema de Gestión Documental.
 🔑 Contraseña: {password}
 🎭 Rol: {role.title()}
 
-Puedes acceder al sistema en: http://localhost:3110
+Puedes acceder al sistema en: {base_url}
 
 IMPORTANTE: Te recomendamos cambiar tu contraseña en tu primer acceso.
 
@@ -199,7 +203,7 @@ Sistema de Gestión Documental
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:3110" 
+                    <a href="{base_url}" 
                        style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
                         Acceder al Sistema
                     </a>
@@ -228,12 +232,13 @@ Sistema de Gestión Documental
                 return False
 
             subject = f"📁 Asignación de área: {area.name}"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
             body = f"""
 Hola {user.username},
 
 Has sido asignado al área "{area.name}" en el Sistema de Gestión Documental.
 
-Puedes acceder al sistema en: http://localhost:3110
+Puedes acceder al sistema en: {base_url}
 
 Saludos,
 Sistema de Gestión Documental
@@ -244,7 +249,7 @@ Sistema de Gestión Documental
                 <p>Hola <strong>{user.username}</strong>,</p>
                 <p>Has sido asignado al área <strong>{area.name}</strong>.</p>
                 <div style=\"text-align: center; margin: 30px 0;\">
-                    <a href=\"http://localhost:3110\" 
+                    <a href=\"{base_url}\" 
                        style=\"background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;\">
                         Ir al sistema
                     </a>
@@ -261,6 +266,7 @@ Sistema de Gestión Documental
         """Notificar al usuario que su contraseña ha sido actualizada"""
         try:
             subject = "🔐 Contraseña actualizada - Sistema de Gestión Documental"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
             body = f"""
 Hola {username},
 
@@ -269,7 +275,7 @@ Tu contraseña ha sido actualizada por el administrador.
 👤 Usuario: {username}
 🔑 Nueva contraseña: {new_password}
 
-Puedes acceder al sistema en: http://localhost:3110
+Puedes acceder al sistema en: {base_url}
 
 Saludos,
 Sistema de Gestión Documental
@@ -284,7 +290,7 @@ Sistema de Gestión Documental
                     <p><strong>🔑 Nueva contraseña:</strong> <code style=\"background: #e9ecef; padding: 2px 4px; border-radius: 3px;\">{new_password}</code></p>
                 </div>
                 <div style=\"text-align: center; margin: 30px 0;\">
-                    <a href=\"http://localhost:3110\" 
+                    <a href=\"{base_url}\" 
                        style=\"background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;\">
                         Acceder al Sistema
                     </a>
@@ -308,6 +314,7 @@ Sistema de Gestión Documental
                 return False
             
             subject = f"📎 Archivo subido: {task.title}"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
             body = f"""
 Hola Administrador,
 
@@ -320,7 +327,7 @@ Se ha subido un nuevo archivo a la tarea "{task.title}".
 📊 Progreso: {task.uploaded_files}/{task.required_files} archivos
 📅 Fecha límite: {task.due_date.strftime('%d/%m/%Y') if task.due_date else 'No especificada'}
 
-Puedes ver la tarea en: http://localhost:3110/tasks/{task_id}
+Puedes ver la tarea en: {base_url}/tasks/{task_id}
 
 Saludos,
 Sistema de Gestión Documental
@@ -342,7 +349,7 @@ Sistema de Gestión Documental
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:3110/tasks/{task_id}" 
+                    <a href="{base_url}/tasks/{task_id}" 
                        style="background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
                         Ver Tarea
                     </a>
@@ -385,6 +392,7 @@ Sistema de Gestión Documental
                 return False
             
             subject = f"⚠️ Tarea vencida: {task.title}"
+            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
             body = f"""
 Hola,
 
@@ -396,7 +404,7 @@ La tarea "{task.title}" ha vencido.
 📊 Progreso: {task.uploaded_files}/{task.required_files} archivos
 ⚡ Prioridad: {task.priority.title()}
 
-Puedes ver la tarea en: http://localhost:3110/tasks/{task_id}
+Puedes ver la tarea en: {base_url}/tasks/{task_id}
 
 Saludos,
 Sistema de Gestión Documental
@@ -417,7 +425,7 @@ Sistema de Gestión Documental
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="http://localhost:3110/tasks/{task_id}" 
+                    <a href="{base_url}/tasks/{task_id}" 
                        style="background: #e74c3c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
                         Ver Tarea
                     </a>
