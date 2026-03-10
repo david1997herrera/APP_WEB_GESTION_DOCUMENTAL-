@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Cargar variables de entorno
 load_dotenv()
@@ -48,9 +49,10 @@ from app.models.user import User
 from app.models.area import Area, AreaUser
 from app.models.task import Task
 from app.models.file import File
+from app.models.scheduled_task import ScheduledTask
 
 # Importar todas las clases para que SQLAlchemy las registre
-from app.models import user, area, task, file
+from app.models import user, area, task, file, scheduled_task
 
 # Configurar user_loader para Flask-Login
 @login_manager.user_loader
@@ -65,6 +67,7 @@ from app.controllers.task_controller import task_bp
 from app.controllers.file_controller import file_bp
 from app.controllers.files_repository_controller import files_repo_bp
 from app.controllers.reports_controller import reports_bp
+from app.controllers.scheduled_task_controller import scheduled_task_bp, process_scheduled_tasks
 
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(admin_bp, url_prefix='/admin')
@@ -73,6 +76,21 @@ app.register_blueprint(task_bp, url_prefix='/tasks')
 app.register_blueprint(file_bp, url_prefix='/files')
 app.register_blueprint(files_repo_bp, url_prefix='/files-repo')
 app.register_blueprint(reports_bp, url_prefix='/reports')
+app.register_blueprint(scheduled_task_bp, url_prefix='/scheduled-tasks')
+
+
+def start_scheduler():
+    """Inicia el scheduler en segundo plano para procesar tareas programadas."""
+    scheduler = BackgroundScheduler(timezone='UTC')
+
+    def _job():
+        with app.app_context():
+            process_scheduled_tasks()
+
+    # Ejecutar cada minuto por defecto (configurable)
+    interval_minutes = int(os.getenv('SCHEDULED_TASKS_INTERVAL_MINUTES', '1'))
+    scheduler.add_job(_job, 'interval', minutes=interval_minutes, id='scheduled_tasks_runner', replace_existing=True)
+    scheduler.start()
 
 # Ruta principal
 @app.route('/')
@@ -120,4 +138,9 @@ if __name__ == '__main__':
     # Ejecutar init solo si variable RUN_DB_INIT=true
     if os.getenv('RUN_DB_INIT', 'false').lower() == 'true':
         init_db()
+    # Iniciar scheduler de tareas programadas si está habilitado
+    if os.getenv('RUN_SCHEDULER', 'true').lower() == 'true':
+        # Evitar doble scheduler con el reloader de Flask
+        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+            start_scheduler()
     app.run(host='0.0.0.0', port=3110, debug=True)

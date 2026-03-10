@@ -18,6 +18,8 @@ class Task(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
+    # Origen: tarea programada (opcional)
+    scheduled_task_id = db.Column(db.Integer, db.ForeignKey('scheduled_tasks.id'), nullable=True)
     
     # Relaciones
     files = db.relationship('File', lazy=True, cascade='all, delete-orphan', overlaps="files")
@@ -77,9 +79,10 @@ class Task(db.Model):
     def get_priority_badge_class(self):
         """Obtener clase CSS para el badge de prioridad"""
         priority_classes = {
-            'baja': 'badge-info',
-            'media': 'badge-primary',
-            'alta': 'badge-danger'
+            # Usar clases Bootstrap 5 (bg-*)
+            'baja': 'bg-info',
+            'media': 'bg-primary',
+            'alta': 'bg-danger'
         }
         return priority_classes.get(self.priority, 'badge-primary')
     

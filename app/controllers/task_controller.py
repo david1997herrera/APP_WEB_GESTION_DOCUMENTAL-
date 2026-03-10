@@ -7,6 +7,7 @@ from app.models.file import File
 from app.config import db
 from app.services.email_service import EmailService
 from datetime import datetime
+from sqlalchemy import or_
 
 task_bp = Blueprint('task', __name__)
 
@@ -112,9 +113,12 @@ def my_tasks():
         flash('No tienes áreas asignadas. Contacta al administrador.', 'warning')
         return render_template('task/my_tasks.html', tasks=[])
     
-    # Obtener tareas de las áreas del usuario
+    # Obtener tareas de las áreas del usuario:
+    # - Asignadas explícitamente al usuario, o
+    # - Sin asignar (visibles por área)
     tasks = Task.query.filter(
-        Task.area_id.in_(user_areas)
+        Task.area_id.in_(user_areas),
+        or_(Task.assigned_to == current_user.id, Task.assigned_to.is_(None))
     ).order_by(Task.created_at.desc()).all()
     
     return render_template('task/my_tasks.html', tasks=tasks)

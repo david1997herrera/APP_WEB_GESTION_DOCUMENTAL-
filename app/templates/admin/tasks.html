@@ -41,6 +41,9 @@
                                     <a href="{{ url_for('task.view', task_id=task.id) }}" class="text-decoration-none">
                                         {{ task.title }}
                                     </a>
+                                    {% if task.scheduled_task_id %}
+                                        <span class="badge bg-info ms-1">Periódica</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span class="badge bg-info">{{ task.area.name }}</span>

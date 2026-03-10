@@ -1,0 +1,127 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ task.title }} - Tarea Programada{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">{{ task.title }}</h1>
+            <div class="btn-group">
+                <a href="{{ url_for('scheduled_task.edit', task_id=task.id) }}" class="btn btn-warning">
+                    <i class="fas fa-edit me-1"></i>Editar
+                </a>
+                <button class="btn btn-danger" onclick="deleteScheduledTask({{ task.id }})">
+                    <i class="fas fa-trash me-1"></i>Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Detalles de la Tarea Programada</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6>Descripción</h6>
+                    <p class="text-muted">{{ task.description or 'Sin descripción' }}</p>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Información General</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Área:</strong> {{ task.area.name }}</li>
+                            <li><strong>Prioridad:</strong>
+                                <span class="badge {{ 'badge-danger' if task.priority == 'alta'
+                                                     else 'badge-info' if task.priority == 'baja'
+                                                     else 'badge-primary' }}">
+                                    {{ task.priority.title() }}
+                                </span>
+                            </li>
+                            <li><strong>Frecuencia:</strong> {{ task.get_frequency_display() }}</li>
+                            <li><strong>Intervalo:</strong> Cada {{ task.interval }}</li>
+                            <li><strong>Estado:</strong>
+                                {% if task.is_active %}
+                                    <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Fechas y hora</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>Inicio:</strong>
+                                {{ task.start_date.strftime('%d/%m/%Y') if task.start_date else '-' }}
+                            </li>
+                            <li><strong>Fin:</strong>
+                                {{ task.end_date.strftime('%d/%m/%Y') if task.end_date else 'Sin fin' }}
+                            </li>
+                            <li><strong>Hora de ejecución:</strong>
+                                {{ task.run_time.strftime('%H:%M') if task.run_time else 'Sin hora fija' }}
+                            </li>
+                            <li><strong>Próxima ejecución:</strong>
+                                {{ task.next_run_at.strftime('%d/%m/%Y %H:%M') if task.next_run_at else '-' }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h6>Usuarios asignados</h6>
+                    {% if task.assigned_users %}
+                        {% for user in task.assigned_users %}
+                            <span class="badge bg-secondary me-1">{{ user.username }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted">Sin usuarios asignados</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Resumen</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <strong>Creada:</strong>
+                    {{ task.created_at.strftime('%d/%m/%Y %H:%M') if task.created_at else '-' }}
+                </p>
+                <p class="mb-2">
+                    <strong>Última actualización:</strong>
+                    {{ task.updated_at.strftime('%d/%m/%Y %H:%M') if task.updated_at else '-' }}
+                </p>
+                <p class="mb-0">
+                    <strong>Creada por:</strong>
+                    {{ task.creator.username if task.creator else 'N/D' }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteScheduledTask(taskId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta tarea programada?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("scheduled_task.delete", task_id=0) }}'.replace('0', taskId);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}
+

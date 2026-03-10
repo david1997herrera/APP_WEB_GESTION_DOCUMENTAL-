@@ -1,0 +1,371 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Crear Tarea Programada - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-plus me-2"></i>Crear Nueva Tarea Programada
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" class="needs-validation" novalidate>
+                    <!-- Sección 1: Datos de la tarea -->
+                    <h6 class="text-uppercase text-muted small mb-3">Datos de la tarea</h6>
+                    <div class="border rounded-3 p-3 mb-4 bg-light">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="title" class="form-label">Título *</label>
+                                    <input type="text" class="form-control" id="title" name="title"
+                                           placeholder="Ej: Informe mensual de sanidad" required>
+                                    <div class="invalid-feedback">
+                                        Ingresa un título.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label for="description" class="form-label">Descripción</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"
+                                      placeholder="Descripción breve de la tarea (opcional)"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Sección 2: Usuarios -->
+                    <h6 class="text-uppercase text-muted small mb-3">Usuarios</h6>
+                    <div class="border rounded-3 p-3 mb-4 bg-light">
+                        <div class="row">
+                            <div class="col-md-5">
+                                <div class="mb-3">
+                                    <label for="area_id" class="form-label">Área responsable *</label>
+                                    <select class="form-select" id="area_id" name="area_id" required>
+                                        <option value="">Seleccionar área</option>
+                                        {% for area in areas %}
+                                        <option value="{{ area.id }}">{{ area.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Selecciona un área.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="mb-3">
+                                    <label for="user_search" class="form-label">Buscar usuarios</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text"
+                                               class="form-control"
+                                               id="user_search"
+                                               placeholder="Busca por nombre">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="user_area_filter" class="form-label">Filtrar por área</label>
+                                            <select class="form-select" id="user_area_filter">
+                                                <option value="">Todas las áreas</option>
+                                                {% for area in areas %}
+                                                <option value="{{ area.id }}">{{ area.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3 mb-md-0">
+                                            <label for="user_role_filter" class="form-label">Filtrar por rol</label>
+                                            <select class="form-select" id="user_role_filter">
+                                                <option value="">Todos los roles</option>
+                                                <option value="admin">Admin</option>
+                                                <option value="escritura">Escritura</option>
+                                                <option value="lectura">Lectura</option>
+                                                <option value="edicion">Edición</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Usuarios disponibles</label>
+                            <div id="available_users_list"
+                                 class="border rounded-3 bg-white p-2"
+                                 style="max-height: 220px; overflow-y: auto;">
+                                {% for user in users %}
+                                <div class="d-flex justify-content-between align-items-center small py-1 px-1 available-user-row"
+                                     data-user-id="{{ user.id }}"
+                                     data-name="{{ user.username|lower }}"
+                                     data-role="{{ user.role|lower }}"
+                                     data-area-ids="{% for assignment in user.area_assignments %}{{ assignment.area_id }},{% endfor %}">
+                                    <div class="me-2">
+                                        <div class="fw-semibold">{{ user.username }}</div>
+                                        <div class="text-muted">{{ user.role.title() }}</div>
+                                    </div>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary add-user-btn">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-text small mt-1">
+                                Puedes agregar usuarios de distintas áreas. El filtro solo ayuda a buscarlos.
+                            </div>
+                            <div class="mt-3">
+                                <label class="form-label">Usuarios seleccionados</label>
+                                <div id="selected_users_container"
+                                     class="border rounded-3 bg-white p-2"
+                                     style="min-height: 38px;">
+                                    <div class="row g-2" id="selected_users_grid">
+                                        <!-- Tarjetas de usuarios seleccionados se insertan por JS -->
+                                    </div>
+                                </div>
+                                <div id="assigned_users_summary" class="mt-2 small text-muted d-none">
+                                    <span class="fw-semibold">Total:</span>
+                                    <span id="assigned_users_list"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección 3: Configuración -->
+                    <h6 class="text-uppercase text-muted small mb-3">Configuración de la tarea</h6>
+                    <div class="border rounded-3 p-3 mb-3 bg-light">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="frequency" class="form-label">Frecuencia *</label>
+                                    <select class="form-select" id="frequency" name="frequency" required>
+                                        <option value="diaria">Diaria</option>
+                                        <option value="semanal">Semanal</option>
+                                        <option value="mensual">Mensual</option>
+                                        <option value="personalizada">Otra</option>
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Selecciona una frecuencia.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="interval" class="form-label" id="intervalLabel">Cada 1 día(s)</label>
+                                    <input type="number" class="form-control" id="interval" name="interval"
+                                           min="1" value="1">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="priority" class="form-label">Prioridad</label>
+                                    <select class="form-select" id="priority" name="priority">
+                                        <option value="baja">Baja</option>
+                                        <option value="media" selected>Media</option>
+                                        <option value="alta">Alta</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="start_date" class="form-label">Inicio</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-0">
+                                    <label for="end_date" class="form-label">Fin</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-0">
+                                    <label for="run_time" class="form-label">Hora de ejecución</label>
+                                    <input type="time" class="form-control" id="run_time" name="run_time">
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-text">
+                                    Si no indicas fin, la tarea seguirá activa sin límite.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+                        <a href="{{ url_for('scheduled_task.index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Crear
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const frequencySelect = document.getElementById('frequency');
+    const intervalLabel = document.getElementById('intervalLabel');
+    const userAreaFilter = document.getElementById('user_area_filter');
+    const userSearchInput = document.getElementById('user_search');
+    const userRoleFilter = document.getElementById('user_role_filter');
+    const availableUserRows = Array.from(document.querySelectorAll('.available-user-row'));
+    const addUserButtons = Array.from(document.querySelectorAll('.add-user-btn'));
+    const selectedUsersContainer = document.getElementById('selected_users_container');
+    const selectedUsersGrid = document.getElementById('selected_users_grid');
+    const assignedUsersSummary = document.getElementById('assigned_users_summary');
+    const assignedUsersList = document.getElementById('assigned_users_list');
+
+    function updateFrequencyTexts() {
+        const value = frequencySelect.value;
+        if (value === 'diaria') {
+            intervalLabel.textContent = 'Cada 1 día(s)';
+        } else if (value === 'semanal') {
+            intervalLabel.textContent = 'Cada 1 semana(s)';
+        } else if (value === 'mensual') {
+            intervalLabel.textContent = 'Cada 1 mes(es)';
+        } else {
+            intervalLabel.textContent = 'Intervalo';
+        }
+    }
+
+    function filterUsersList() {
+        const term = (userSearchInput ? userSearchInput.value : '').toLowerCase();
+        const areaId = userAreaFilter ? userAreaFilter.value : '';
+        const roleFilter = userRoleFilter ? userRoleFilter.value : '';
+
+        availableUserRows.forEach(row => {
+            const name = row.getAttribute('data-name') || '';
+            const role = row.getAttribute('data-role') || '';
+            const areas = row.getAttribute('data-area-ids') || '';
+
+            const matchesText = !term || name.includes(term);
+            const matchesArea = !areaId || areas.split(',').includes(areaId);
+            const matchesRole = !roleFilter || role === roleFilter;
+
+            if (matchesText && matchesArea && matchesRole) {
+                row.classList.remove('d-none');
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+    }
+
+    function syncHiddenInputs() {
+        if (!selectedUsersContainer || !selectedUsersGrid) return;
+        // Elimina inputs ocultos previos
+        const oldInputs = selectedUsersContainer.querySelectorAll('input[type="hidden"][name="assigned_users"]');
+        oldInputs.forEach(i => i.remove());
+
+        const cards = Array.from(selectedUsersGrid.querySelectorAll('[data-user-id]'));
+        cards.forEach(card => {
+            const id = card.getAttribute('data-user-id');
+            if (!id) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'assigned_users';
+            input.value = id;
+            selectedUsersContainer.appendChild(input);
+        });
+    }
+
+    function updateAssignedUsersSummary() {
+        if (!assignedUsersSummary || !assignedUsersList || !selectedUsersGrid) return;
+        const cards = Array.from(selectedUsersGrid.querySelectorAll('[data-user-id]'));
+        if (cards.length === 0) {
+            assignedUsersSummary.classList.add('d-none');
+            assignedUsersList.textContent = '';
+            return;
+        }
+        const names = cards.map(card => card.querySelector('.selected-user-name')?.textContent.trim() || '');
+        assignedUsersList.textContent = names.join(', ');
+        assignedUsersSummary.classList.remove('d-none');
+    }
+
+    function addUser(userId, userNameAndRole) {
+        if (!selectedUsersGrid) return;
+        const existing = selectedUsersGrid.querySelector('[data-user-id="' + userId + '"]');
+        if (existing) return;
+
+        const col = document.createElement('div');
+        col.className = 'col-12 col-md-6 col-lg-4';
+
+        const card = document.createElement('div');
+        card.className = 'card shadow-sm border h-100 bg-light';
+        card.setAttribute('data-user-id', userId);
+
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body py-2 px-3 d-flex justify-content-between align-items-start';
+
+        const span = document.createElement('span');
+        span.className = 'selected-user-name';
+        span.textContent = userNameAndRole;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-outline-danger ms-2';
+        btn.innerHTML = '<i class="fas fa-times"></i>';
+        btn.setAttribute('aria-label', 'Quitar');
+        btn.addEventListener('click', function () {
+            col.remove();
+            syncHiddenInputs();
+            updateAssignedUsersSummary();
+        });
+
+        cardBody.appendChild(span);
+        cardBody.appendChild(btn);
+        card.appendChild(cardBody);
+        col.appendChild(card);
+        selectedUsersGrid.appendChild(col);
+
+        syncHiddenInputs();
+        updateAssignedUsersSummary();
+    }
+
+    if (frequencySelect && intervalLabel) {
+        frequencySelect.addEventListener('change', updateFrequencyTexts);
+        updateFrequencyTexts();
+    }
+
+    if (userAreaFilter || userSearchInput || userRoleFilter) {
+        if (userAreaFilter) {
+            userAreaFilter.addEventListener('change', filterUsersList);
+        }
+        if (userSearchInput) {
+            userSearchInput.addEventListener('input', filterUsersList);
+        }
+        if (userRoleFilter) {
+            userRoleFilter.addEventListener('change', filterUsersList);
+        }
+        filterUsersList();
+    }
+
+    if (addUserButtons.length) {
+        addUserButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                const row = btn.closest('.available-user-row');
+                if (!row) return;
+                const userId = row.getAttribute('data-user-id');
+                const name = row.querySelector('.fw-semibold')?.textContent.trim() || '';
+                const role = row.querySelector('.text-muted')?.textContent.trim() || '';
+                const label = role ? name + ' (' + role + ')' : name;
+                addUser(userId, label);
+            });
+        });
+    }
+
+    // Inicializar resumen (por si en el futuro hay valores precargados)
+    syncHiddenInputs();
+    updateAssignedUsersSummary();
+});
+</script>
+{% endblock %}
