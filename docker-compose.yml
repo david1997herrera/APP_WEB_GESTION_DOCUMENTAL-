@@ -14,7 +14,7 @@ services:
       - MAIL_SERVER=smtp.gmail.com
       - MAIL_PORT=587
       - MAIL_USE_TLS=True
-      - APP_BASE_URL=http://192.168.0.106:3110
+      - APP_BASE_URL=http://131.196.8.22:3110
       - RUN_DB_INIT=true
     volumes:
       - ./uploads:/app/uploads

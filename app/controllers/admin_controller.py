@@ -258,6 +258,9 @@ def delete_user(user_id):
         return redirect(url_for('admin.users'))
     
     try:
+        # Limpiar asignaciones de área primero para evitar violaciones NOT NULL
+        AreaUser.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
         db.session.delete(user)
         db.session.commit()
         flash(f'Usuario "{user.username}" eliminado exitosamente', 'success')

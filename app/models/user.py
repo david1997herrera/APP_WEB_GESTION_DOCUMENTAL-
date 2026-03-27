@@ -32,26 +32,42 @@ class User(UserMixin, db.Model):
     def is_admin(self):
         """Verificar si es administrador"""
         return self.role == 'admin'
+
+    def is_area_admin(self):
+        """Administrador asignado a una sola/sus áreas (acceso limitado)."""
+        return self.role == 'area_admin'
+
+    def can_manage_area(self, area_id: int) -> bool:
+        """Permiso para ver/editar datos de una área concreta."""
+        if self.is_admin():
+            return True
+        if not self.is_area_admin():
+            return False
+        return any(assignment.area_id == area_id for assignment in getattr(self, 'area_assignments', []) or [])
     
     def can_write(self):
         """Verificar si puede escribir"""
-        return self.role in ['admin', 'escritura']
+        return self.role in ['admin', 'area_admin', 'escritura']
     
     def can_read(self):
         """Verificar si puede leer"""
-        return self.role in ['admin', 'escritura', 'lectura']
+        return self.role in ['admin', 'area_admin', 'escritura', 'lectura']
     
     def can_edit(self):
         """Verificar si puede editar"""
-        return self.role in ['admin', 'edicion']
+        return self.role in ['admin', 'area_admin', 'edicion']
     
     def can_upload_files(self):
         """Verificar si puede subir archivos"""
-        return self.role in ['admin', 'escritura', 'edicion']
+        return self.role in ['admin', 'area_admin', 'escritura', 'edicion']
     
     def can_download_files(self):
         """Verificar si puede descargar archivos"""
-        return self.role in ['admin', 'escritura', 'edicion', 'lectura']
+        return self.role in ['admin', 'area_admin', 'escritura', 'edicion', 'lectura']
+
+    def can_manage_task_area(self, area_id: int) -> bool:
+        """Alias para permisos de gestión por área."""
+        return self.can_manage_area(area_id)
     
     def get_areas(self):
         """Obtener áreas asignadas al usuario"""

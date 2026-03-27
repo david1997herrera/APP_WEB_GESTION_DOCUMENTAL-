@@ -6,7 +6,7 @@
 <div class="row mb-3">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <h1 class="h3 mb-0">{{ requisition.title }}</h1>
-        {% if current_user.id == requisition.target_user_id %}
+        {% if (current_user.id == requisition.target_user_id) or (current_user.is_area_admin() and current_user.can_manage_area(requisition.area_id)) %}
         <div class="btn-group">
             {% if requisition.status == 'enviada' %}
             <form method="POST" action="{{ url_for('requisition.mark_reviewed', requisition_id=requisition.id) }}" class="me-1">
@@ -44,6 +44,7 @@
                         <h6>Información General</h6>
                         <ul class="list-unstyled mb-0">
                             <li><strong>Solicitante:</strong> {{ requisition.requester.username if requisition.requester else 'N/D' }}</li>
+                            <li><strong>Área:</strong> {{ requisition.area.name if requisition.area else 'No especificada' }}</li>
                             <li><strong>Dirigida a:</strong> {{ requisition.target_user.username if requisition.target_user else 'No asignado' }}</li>
                             <li><strong>Monto estimado:</strong>
                                 {% if requisition.amount is not none %}

@@ -1,5 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+import re
+import unicodedata
 from app.models.area import Area, AreaUser
 from app.models.user import User
 from app.models.task import Task
@@ -22,6 +24,49 @@ def admin_required(f):
             return redirect(url_for('task.my_tasks'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def area_scope_required(f):
+    """Permitir acceso a global admin o admin asignado a un área concreta."""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Por favor inicia sesión para acceder a esta página', 'error')
+            return redirect(url_for('auth.login'))
+
+        area_id = kwargs.get('area_id')
+        if current_user.is_admin():
+            return f(*args, **kwargs)
+
+        if area_id is not None and current_user.can_manage_area(area_id):
+            return f(*args, **kwargs)
+
+        flash('No tienes permisos para acceder a esta área', 'error')
+        return redirect(url_for('task.my_tasks'))
+
+    return decorated_function
+
+
+def _slugify_area_name(area_name: str) -> str:
+    normalized = unicodedata.normalize('NFKD', (area_name or '').strip())
+    ascii_name = normalized.encode('ascii', 'ignore').decode('ascii').lower()
+    slug = re.sub(r'[^a-z0-9]+', '_', ascii_name).strip('_')
+    return slug or 'general'
+
+
+def _build_area_admin_identity(area_name: str):
+    base = _slugify_area_name(area_name)
+    username = f'area_admin_{base}'
+    email = f'{username}@example.com'
+    suffix = 2
+
+    while User.query.filter((User.username == username) | (User.email == email)).first():
+        username = f'area_admin_{base}_{suffix}'
+        email = f'{username}@example.com'
+        suffix += 1
+
+    return username, email
 
 @area_bp.route('/create', methods=['GET', 'POST'])
 @login_required
@@ -51,6 +96,27 @@ def create():
         try:
             db.session.add(area)
             db.session.commit()
+
+            # Crear automáticamente un usuario admin por área
+            # (rol: area_admin) y asignarlo a la recién creada.
+            area_admin_username, area_admin_email = _build_area_admin_identity(area.name)
+            existing = User.query.filter_by(username=area_admin_username).first()
+            if not existing:
+                area_admin = User(
+                    username=area_admin_username,
+                    email=area_admin_email,
+                    role='area_admin',
+                    is_active=True
+                )
+                area_admin.set_password('uml57vli60')
+                db.session.add(area_admin)
+                db.session.flush()
+
+                assignment = AreaUser.query.filter_by(area_id=area.id, user_id=area_admin.id).first()
+                if not assignment:
+                    db.session.add(AreaUser(area_id=area.id, user_id=area_admin.id))
+                db.session.commit()
+
             flash(f'Área "{name}" creada exitosamente', 'success')
             return redirect(url_for('admin.areas'))
         except Exception as e:
@@ -61,7 +127,7 @@ def create():
 
 @area_bp.route('/<int:area_id>')
 @login_required
-@admin_required
+@area_scope_required
 def view(area_id):
     """Ver detalles de un área"""
     area = Area.query.get_or_404(area_id)
@@ -72,7 +138,7 @@ def view(area_id):
 
 @area_bp.route('/<int:area_id>/edit', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@area_scope_required
 def edit(area_id):
     """Editar área"""
     area = Area.query.get_or_404(area_id)

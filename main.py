@@ -1,4 +1,6 @@
 import os
+import re
+import unicodedata
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 # from flask_migrate import Migrate  # Comentado temporalmente
@@ -81,6 +83,27 @@ app.register_blueprint(scheduled_task_bp, url_prefix='/scheduled-tasks')
 app.register_blueprint(requisition_bp, url_prefix='/requisitions')
 
 
+def _slugify_area_name(area_name: str) -> str:
+    normalized = unicodedata.normalize('NFKD', (area_name or '').strip())
+    ascii_name = normalized.encode('ascii', 'ignore').decode('ascii').lower()
+    slug = re.sub(r'[^a-z0-9]+', '_', ascii_name).strip('_')
+    return slug or 'general'
+
+
+def _build_area_admin_identity(area_name: str):
+    base = _slugify_area_name(area_name)
+    username = f'area_admin_{base}'
+    email = f'{username}@example.com'
+    suffix = 2
+
+    while User.query.filter((User.username == username) | (User.email == email)).first():
+        username = f'area_admin_{base}_{suffix}'
+        email = f'{username}@example.com'
+        suffix += 1
+
+    return username, email
+
+
 def start_scheduler():
     """Inicia el scheduler en segundo plano para procesar tareas programadas."""
     scheduler = BackgroundScheduler(timezone='UTC')
@@ -130,6 +153,40 @@ def init_db():
             print("✅ Base de datos inicializada correctamente")
             print("🚀 La aplicación está lista para usar")
             print("📝 Puedes crear áreas y usuarios desde el dashboard del administrador")
+
+            # Crear un admin por área (rol area_admin) y asignarlo a la correspondiente área
+            # Esto permite que ese usuario administre únicamente su área.
+            areas_all = Area.query.filter_by(is_active=True).all()
+            default_password = 'uml57vli60'
+            for area in areas_all:
+                # Evitar duplicados: si ya existe un area_admin asignado al área, no crear otro.
+                existing_area_admin = db.session.query(User).join(
+                    AreaUser, AreaUser.user_id == User.id
+                ).filter(
+                    User.role == 'area_admin',
+                    AreaUser.area_id == area.id
+                ).first()
+
+                if existing_area_admin:
+                    continue
+
+                area_admin_username, area_admin_email = _build_area_admin_identity(area.name)
+                area_admin = User(
+                    username=area_admin_username,
+                    email=area_admin_email,
+                    role='area_admin',
+                    is_active=True
+                )
+                area_admin.set_password(default_password)
+                db.session.add(area_admin)
+                db.session.flush()  # obtener id sin commit
+
+                # Asignar el admin al área
+                area_user = AreaUser.query.filter_by(area_id=area.id, user_id=area_admin.id).first()
+                if not area_user:
+                    db.session.add(AreaUser(area_id=area.id, user_id=area_admin.id))
+
+            db.session.commit()
             
         except Exception as e:
             print(f"❌ Error al inicializar la base de datos: {e}")

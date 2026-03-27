@@ -23,6 +23,9 @@ class PurchaseRequisition(db.Model):
     reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     approver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
+    # Área a la que pertenece esta requisición (para permisos por área).
+    area_id = db.Column(db.Integer, db.ForeignKey('areas.id'), nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     reviewed_at = db.Column(db.DateTime, nullable=True)
@@ -32,6 +35,7 @@ class PurchaseRequisition(db.Model):
     target_user = db.relationship('User', foreign_keys=[target_user_id])
     reviewer = db.relationship('User', foreign_keys=[reviewer_id])
     approver = db.relationship('User', foreign_keys=[approver_id])
+    area = db.relationship('Area', foreign_keys=[area_id])
 
     def get_status_badge_class(self) -> str:
         mapping = {

@@ -113,22 +113,34 @@ def my_tasks():
         flash('No tienes áreas asignadas. Contacta al administrador.', 'warning')
         return render_template('task/my_tasks.html', tasks=[])
     
-    # Obtener tareas de las áreas del usuario:
-    # - Asignadas explícitamente al usuario, o
-    # - Sin asignar (visibles por área)
-    tasks = Task.query.filter(
-        Task.area_id.in_(user_areas),
-        or_(Task.assigned_to == current_user.id, Task.assigned_to.is_(None))
-    ).order_by(Task.created_at.desc()).all()
+    if current_user.is_area_admin():
+        # Admin por área: ve todas las tareas de sus áreas (sin depender de assigned_to).
+        tasks = Task.query.filter(
+            Task.area_id.in_(user_areas)
+        ).order_by(Task.created_at.desc()).all()
+    else:
+        # Usuario normal: ve tareas asignadas a él o sin asignar dentro de sus áreas.
+        tasks = Task.query.filter(
+            Task.area_id.in_(user_areas),
+            or_(Task.assigned_to == current_user.id, Task.assigned_to.is_(None))
+        ).order_by(Task.created_at.desc()).all()
     
     return render_template('task/my_tasks.html', tasks=tasks)
 
 @task_bp.route('/<int:task_id>/edit', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def edit(task_id):
     """Editar tarea"""
     task = Task.query.get_or_404(task_id)
+
+    # Permisos:
+    # - Admin global: puede editar cualquier tarea
+    # - Admin por área: solo puede editar tareas de sus áreas asignadas
+    if not current_user.is_admin():
+        user_areas = [assignment.area_id for assignment in current_user.area_assignments]
+        if not current_user.is_area_admin() or task.area_id not in user_areas:
+            flash('No tienes permisos para editar esta tarea', 'error')
+            return redirect(url_for('task.my_tasks'))
     
     if request.method == 'POST':
         title = request.form.get('title')
@@ -181,10 +193,15 @@ def edit(task_id):
 
 @task_bp.route('/<int:task_id>/delete', methods=['POST'])
 @login_required
-@admin_required
 def delete(task_id):
     """Eliminar tarea"""
     task = Task.query.get_or_404(task_id)
+
+    if not current_user.is_admin():
+        user_areas = [assignment.area_id for assignment in current_user.area_assignments]
+        if not current_user.is_area_admin() or task.area_id not in user_areas:
+            flash('No tienes permisos para eliminar esta tarea', 'error')
+            return redirect(url_for('task.my_tasks'))
     
     try:
         # Eliminar archivos asociados
@@ -195,7 +212,10 @@ def delete(task_id):
         db.session.delete(task)
         db.session.commit()
         flash('Tarea eliminada exitosamente', 'success')
-        return redirect(url_for('admin.tasks'))
+        # Redirigir según el tipo de usuario
+        if current_user.is_admin():
+            return redirect(url_for('admin.tasks'))
+        return redirect(url_for('task.my_tasks'))
     except Exception as e:
         db.session.rollback()
         flash('Error al eliminar la tarea', 'error')

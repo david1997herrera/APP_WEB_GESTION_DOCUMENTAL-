@@ -149,6 +149,11 @@
                             <a class="nav-link px-5 py-2 text-light" href="{{ url_for('requisition.assigned') }}">
                                 <i class="fas fa-inbox me-2"></i> Requisiciones asignadas
                             </a>
+                            {% if current_user.is_area_admin() %}
+                            <a class="nav-link px-5 py-2 text-light" href="{{ url_for('requisition.area') }}">
+                                <i class="fas fa-building me-2"></i> Requisiciones de mi área
+                            </a>
+                            {% endif %}
                             {% if current_user.is_admin() %}
                             <a class="nav-link px-5 py-2 text-light" href="{{ url_for('requisition.index') }}">
                                 <i class="fas fa-list me-2"></i> Todas las Requisiciones
