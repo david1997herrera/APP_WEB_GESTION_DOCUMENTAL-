@@ -29,6 +29,78 @@ def admin_required(f):
     return decorated_function
 
 
+def _align_datetime_with_run_time(base_dt: datetime, run_time):
+    """Alinear fecha base con hora de ejecución si existe."""
+    if not base_dt:
+        return None
+    if not run_time:
+        return base_dt.replace(second=0, microsecond=0)
+    return base_dt.replace(
+        hour=run_time.hour,
+        minute=run_time.minute,
+        second=0,
+        microsecond=0,
+    )
+
+
+def _add_frequency_interval(current: datetime, frequency: str, interval: int) -> datetime:
+    """Avanzar fecha actual según frecuencia/intervalo."""
+    safe_interval = max(1, int(interval or 1))
+    if frequency == 'diaria':
+        return current + timedelta(days=safe_interval)
+    if frequency == 'semanal':
+        return current + timedelta(weeks=safe_interval)
+    if frequency == 'mensual':
+        # Aproximación actual del proyecto: 30 días por mes
+        return current + timedelta(days=30 * safe_interval)
+    # Por defecto, personalizada se trata como diaria
+    return current + timedelta(days=safe_interval)
+
+
+def _create_generated_tasks_for_schedule(scheduled: ScheduledTask) -> bool:
+    """Crear tareas derivadas para todos los usuarios asignados."""
+    if not scheduled.assigned_users:
+        return False
+
+    for user in scheduled.assigned_users:
+        task = Task(
+            title=scheduled.title,
+            description=scheduled.description,
+            area_id=scheduled.area_id,
+            created_by=scheduled.created_by,
+            assigned_to=user.id,
+            priority=scheduled.priority or 'media',
+            scheduled_task_id=scheduled.id,
+        )
+        db.session.add(task)
+    return True
+
+
+def _process_single_scheduled_task(scheduled: ScheduledTask, reference: datetime) -> bool:
+    """Procesar una tarea programada puntual; devuelve True si generó tareas."""
+    # Respetar fecha de inicio
+    if scheduled.start_date and scheduled.start_date > reference:
+        return False
+
+    # Respetar fecha de fin
+    if scheduled.end_date and reference > scheduled.end_date:
+        return False
+
+    run_at = scheduled.next_run_at or _align_datetime_with_run_time(scheduled.start_date, scheduled.run_time)
+    if not run_at:
+        return False
+
+    # Si aún no toca, no generar
+    if run_at > reference:
+        return False
+
+    generated = _create_generated_tasks_for_schedule(scheduled)
+    if generated:
+        scheduled.next_run_at = _calculate_next_run_at(scheduled, reference)
+        scheduled.updated_at = reference
+    return generated
+
+
 @scheduled_task_bp.route('/')
 @login_required
 @admin_required
@@ -104,7 +176,7 @@ def create():
             start_date=start_date_obj,
             run_time=run_time_obj,
             end_date=end_date_obj,
-            next_run_at=start_date_obj,
+            next_run_at=_align_datetime_with_run_time(start_date_obj, run_time_obj),
             is_active=True,
         )
 
@@ -114,6 +186,12 @@ def create():
         try:
             db.session.add(scheduled_task)
             db.session.commit()
+
+            # Catch-up inmediato: si la hora/fecha ya pasó, crear tareas ahora mismo.
+            now = datetime.utcnow()
+            if _process_single_scheduled_task(scheduled_task, now):
+                db.session.commit()
+
             flash('Tarea programada creada correctamente.', 'success')
             return redirect(url_for('scheduled_task.index'))
         except Exception:
@@ -181,7 +259,7 @@ def edit(task_id):
         task.run_time = run_time_obj
         task.end_date = end_date_obj
         task.is_active = is_active
-        task.next_run_at = start_date_obj
+        task.next_run_at = _align_datetime_with_run_time(start_date_obj, run_time_obj)
         task.updated_at = datetime.utcnow()
 
         if assigned_user_ids:
@@ -191,6 +269,12 @@ def edit(task_id):
 
         try:
             db.session.commit()
+
+            # Catch-up al editar: si ya tocaba correr, generar al guardar.
+            now = datetime.utcnow()
+            if _process_single_scheduled_task(task, now):
+                db.session.commit()
+
             flash('Tarea programada actualizada correctamente.', 'success')
             return redirect(url_for('scheduled_task.index'))
         except Exception:
@@ -220,30 +304,21 @@ def delete(task_id):
 
 def _calculate_next_run_at(scheduled_task: ScheduledTask, reference: datetime) -> datetime:
     """Calcular próxima ejecución en base a frecuencia e intervalo."""
-    current = scheduled_task.next_run_at or scheduled_task.start_date
-
-    # Asegurar que la hora se mantenga consistente
-    if scheduled_task.run_time:
-        current = current.replace(
-            hour=scheduled_task.run_time.hour,
-            minute=scheduled_task.run_time.minute,
-            second=0,
-            microsecond=0,
-        )
+    current = scheduled_task.next_run_at or _align_datetime_with_run_time(
+        scheduled_task.start_date,
+        scheduled_task.run_time,
+    )
+    if not current:
+        return reference
 
     if current <= reference:
         # Avanzar hasta que quede en el futuro
         while current <= reference:
-            if scheduled_task.frequency == 'diaria':
-                current = current + timedelta(days=scheduled_task.interval)
-            elif scheduled_task.frequency == 'semanal':
-                current = current + timedelta(weeks=scheduled_task.interval)
-            elif scheduled_task.frequency == 'mensual':
-                # Aproximación: 30 días por mes
-                current = current + timedelta(days=30 * scheduled_task.interval)
-            else:
-                # Por defecto tratamos personalizada como diaria
-                current = current + timedelta(days=scheduled_task.interval)
+            current = _add_frequency_interval(
+                current,
+                scheduled_task.frequency,
+                scheduled_task.interval,
+            )
 
     return current
 
@@ -258,33 +333,7 @@ def process_scheduled_tasks():
     ).all()
 
     for scheduled in active_tasks:
-        # Respetar fecha de fin
-        if scheduled.end_date and now > scheduled.end_date:
-            continue
-
-        # Solo procesar si toca ejecutar (next_run_at vacío o vencido)
-        if scheduled.next_run_at and scheduled.next_run_at > now:
-            continue
-
-        if not scheduled.assigned_users:
-            continue
-
-        # Crear una tarea Task por usuario asignado
-        for user in scheduled.assigned_users:
-            task = Task(
-                title=scheduled.title,
-                description=scheduled.description,
-                area_id=scheduled.area_id,
-                created_by=scheduled.created_by,
-                assigned_to=user.id,
-                priority=scheduled.priority or 'media',
-                scheduled_task_id=scheduled.id,
-            )
-            db.session.add(task)
-
-        # Calcular próxima ejecución
-        scheduled.next_run_at = _calculate_next_run_at(scheduled, now)
-        scheduled.updated_at = now
+        _process_single_scheduled_task(scheduled, now)
 
     db.session.commit()
 
