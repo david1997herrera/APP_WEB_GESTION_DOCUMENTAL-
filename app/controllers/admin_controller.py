@@ -6,7 +6,7 @@ from app.models.task import Task
 from app.models.file import File
 from app.config import db
 from app.services.email_service import EmailService
-from datetime import datetime
+from datetime import datetime, timedelta
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -37,17 +37,17 @@ def dashboard():
     pending_tasks = Task.query.filter(Task.status != 'completada').count()
     
     # Tareas vencidas
-    from datetime import datetime
     overdue_tasks = Task.query.filter(
         Task.due_date < datetime.utcnow(),
         Task.status != 'completada'
     ).count()
     
     # Tareas de hoy
-    today = datetime.utcnow().date()
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
     today_tasks = Task.query.filter(
         Task.due_date >= today,
-        Task.due_date < today.replace(day=today.day + 1)
+        Task.due_date < tomorrow
     ).count()
     
     # Obtener áreas con información detallada
