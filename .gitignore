@@ -140,6 +140,7 @@ app/uploads/
 RESPALDOS_APP_BDD/*.sql
 RESPALDOS_APP_BDD/*.dump
 RESPALDOS_APP_BDD/*.gz
+RESPALDOS_APP_BDD/*.zip
 Desktop/RESPALDOS_APP_BDD/
 reporte_duplicidad_tareas.xlsx
 ~$*.xlsx

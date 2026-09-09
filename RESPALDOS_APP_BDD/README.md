@@ -1,52 +1,42 @@
 # RESPALDOS_APP_BDD
 
-Carpeta de respaldos de PostgreSQL. **No forma parte de la lógica de la aplicación**: solo scripts externos que hacen `pg_dump` del contenedor `gestion_documental_db`.
+Respaldos **externos** (no tocan la lógica de la app):
 
-## Dónde se guardan
+1. **BDD** → `gestion_documental_YYYYMMDD_HHMMSS.sql` (`pg_dump`)
+2. **Archivos** → `uploads_YYYYMMDD_HHMMSS.zip` (carpeta `uploads` del proyecto)
 
-Por defecto:
+## Dónde se guardan (servidor Windows)
+
+Por defecto el script escribe en el Escritorio:
 
 ```text
-<carpeta_del_proyecto>/RESPALDOS_APP_BDD/
+C:\Users\ServerDell\Desktop\RESPALDOS_APP_BDD\
+  gestion_documental_....sql
+  uploads_....zip
 ```
 
-Opcional (escritorio del usuario actual, Mac o Windows):
+Variable opcional:
 
-```bash
-python scripts/backup_db.py --desktop
+```bat
+set BACKUP_DIR=D:\Backups\GestionDocumental
+scripts\backup_db.bat
 ```
 
-O con variable de entorno:
+Los `.sql` / `.zip` **no se suben a git**.
 
-```bash
-# Windows (PowerShell)
-$env:BACKUP_DIR="$env:USERPROFILE\Desktop\RESPALDOS_APP_BDD"
-python scripts/backup_db.py
-
-# Mac
-export BACKUP_DIR="$HOME/Desktop/RESPALDOS_APP_BDD"
-python scripts/backup_db.py
-```
-
-Los archivos `.sql` / `.dump` de esta carpeta **no se suben a git** (están en `.gitignore`).
-
-## Cómo respaldar (servidor Windows)
-
-1. Docker Desktop con `gestion_documental_db` en ejecución.
-2. Desde la carpeta del proyecto (**no requiere Python**):
+## Cómo respaldar (Windows, sin Python)
 
 ```bat
 scripts\backup_db.bat
 ```
 
-Guarda en: `%USERPROFILE%\Desktop\RESPALDOS_APP_BDD\`
+## Programador de tareas (automático diario)
 
-3. Programar en **Programador de tareas de Windows** (diario, p. ej. 02:00):
+Misma tarea que antes; el `.bat` ahora respalda BDD **y** uploads:
 
 - Programa: `C:\Users\ServerDell\Desktop\app_web_gestion_documental-\scripts\backup_db.bat`
 - Iniciar en: `C:\Users\ServerDell\Desktop\app_web_gestion_documental-`
-
-(Opcional si tienes Python: `python scripts\backup_db.py --desktop`)
+- Diario, p. ej. 02:00
 
 ## Cómo respaldar (Mac)
 
@@ -54,25 +44,31 @@ Guarda en: `%USERPROFILE%\Desktop\RESPALDOS_APP_BDD\`
 python3 scripts/backup_db.py --desktop --retain 14
 ```
 
-## Restaurar (solo si hace falta)
+## Restaurar
 
-```bash
-# CUIDADO: sobrescribe datos actuales de la BDD del contenedor
-docker exec -i gestion_documental_db psql -U postgres -d gestion_documental < RESPALDOS_APP_BDD\gestion_documental_YYYYMMDD_HHMMSS.sql
+### Base de datos
+
+```bat
+docker exec -i gestion_documental_db psql -U postgres -d gestion_documental < C:\Users\ServerDell\Desktop\RESPALDOS_APP_BDD\gestion_documental_YYYYMMDD_HHMMSS.sql
 ```
 
-En Mac/Linux usa `/` en la ruta.
+### Archivos uploads
+
+1. Detener app (opcional): `docker compose stop app`
+2. Descomprimir el ZIP sobre la carpeta `uploads` del proyecto
+3. `docker compose start app`
 
 ## Política sugerida
 
 | Qué | Valor |
 |-----|--------|
 | Frecuencia | Diario |
-| Retención | 14 días (`--retain 14`) |
-| Contenedor | `gestion_documental_db` |
-| No usar | `docker compose down -v` (borra el volumen) |
+| Retención | 14 de cada tipo (SQL y ZIP) |
+| Contenedor BDD | `gestion_documental_db` |
+| Carpeta archivos | `./uploads` (montada en Docker) |
+| No usar | `docker compose down -v` |
 
-## Qué NO hace este respaldo
+## Qué NO hace
 
 - No vacía ni reinicia la base.
 - No cambia `RUN_DB_INIT`.

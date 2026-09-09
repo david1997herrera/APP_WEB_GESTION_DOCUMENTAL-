@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Respaldo de PostgreSQL vía docker exec + pg_dump.
-No modifica la aplicación ni la lógica de negocio: solo genera un dump SQL.
+Respaldo completo (BDD + uploads) vía docker/pg_dump y zip.
+No modifica la lógica de la aplicación.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -73,27 +74,33 @@ def run_pg_dump(container: str, db_user: str, db_name: str, out_file: Path) -> N
         raise SystemExit(f"ERROR: pg_dump falló:\n{err}")
 
 
+def zip_uploads(uploads_dir: Path, out_zip: Path) -> bool:
+    if not uploads_dir.exists():
+        print(f"AVISO: no existe {uploads_dir}; se omite ZIP.")
+        return False
+    files = [p for p in uploads_dir.rglob("*") if p.is_file()]
+    if not files:
+        print("AVISO: uploads sin archivos; se omite ZIP.")
+        return False
+    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in files:
+            zf.write(path, arcname=str(path.relative_to(uploads_dir)))
+    return True
+
+
 def prune_old_backups(folder: Path, retain: int) -> None:
     if retain <= 0:
         return
-    files = sorted(
-        list(folder.glob("gestion_documental_*.sql"))
-        + list(folder.glob("gestion_documental_*.dump")),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    for old in files[retain:]:
-        old.unlink(missing_ok=True)
-        print(f"Eliminado respaldo antiguo: {old.name}")
+    for pattern in ("gestion_documental_*.sql", "gestion_documental_*.dump", "uploads_*.zip"):
+        files = sorted(folder.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in files[retain:]:
+            old.unlink(missing_ok=True)
+            print(f"Eliminado respaldo antiguo: {old.name}")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Respaldo Postgres (contenedor Docker)")
-    parser.add_argument(
-        "--desktop",
-        action="store_true",
-        help="Guardar en Desktop/RESPALDOS_APP_BDD (Mac/Windows)",
-    )
+    parser = argparse.ArgumentParser(description="Respaldo Postgres + uploads")
+    parser.add_argument("--desktop", action="store_true", help="Guardar en Desktop/RESPALDOS_APP_BDD")
     parser.add_argument(
         "--retain",
         type=int,
@@ -114,16 +121,20 @@ def main() -> int:
 
     backup_dir = resolve_backup_dir(args.desktop)
     backup_dir.mkdir(parents=True, exist_ok=True)
-
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_file = backup_dir / f"gestion_documental_{stamp}.sql"
 
-    print(f"Creando respaldo en: {out_file}")
-    run_pg_dump(args.container, args.user, args.db, out_file)
-    size_mb = out_file.stat().st_size / (1024 * 1024)
-    print(f"OK ({size_mb:.2f} MB)")
+    out_sql = backup_dir / f"gestion_documental_{stamp}.sql"
+    print(f"1/2 BDD -> {out_sql}")
+    run_pg_dump(args.container, args.user, args.db, out_sql)
+    print(f"OK BDD ({out_sql.stat().st_size / (1024 * 1024):.2f} MB)")
+
+    out_zip = backup_dir / f"uploads_{stamp}.zip"
+    print(f"2/2 uploads -> {out_zip}")
+    if zip_uploads(project_root() / "uploads", out_zip):
+        print(f"OK uploads ({out_zip.stat().st_size / (1024 * 1024):.2f} MB)")
 
     prune_old_backups(backup_dir, args.retain)
+    print(f"Listo en: {backup_dir}")
     return 0
 
 
