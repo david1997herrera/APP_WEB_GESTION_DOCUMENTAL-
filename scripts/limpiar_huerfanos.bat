@@ -1,23 +1,54 @@
 @echo off
-REM Elimina contenedores huérfanos de la imagen de la app (nombres aleatorios tipo hardcore_lamarr).
-REM NO toca gestion_documental_db ni APP_GESTION_DOCUMENTAL ni volúmenes.
+setlocal EnableExtensions
+REM Corrige bug previo: NUNCA usar "docker ps -aq" con --format en Windows.
+REM Eso dejaba el nombre vacio y borraba APP_GESTION_DOCUMENTAL por error.
 
-echo Contenedores actuales de la imagen app:
-docker ps -a --filter "ancestor=app_web_gestion_documental--app" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
-
+echo ============================================
+echo Limpieza de contenedores huerfanos (APP)
+echo ============================================
 echo.
-echo Se eliminaran SOLO contenedores de esa imagen cuyo nombre NO sea APP_GESTION_DOCUMENTAL.
+echo Contenedores actuales:
+docker ps -a --format "table {{.ID}}\t{{.Names}}\t{{.Image}}\t{{.Status}}"
+echo.
+echo Se CONSERVAN siempre:
+echo   APP_GESTION_DOCUMENTAL
+echo   gestion_documental_db
+echo.
+echo Solo se borran contenedores de la imagen app_web_gestion_documental*
+echo cuyo nombre NO sea APP_GESTION_DOCUMENTAL.
+echo La BDD no se toca.
+echo.
 pause
 
-for /f "tokens=1,2" %%A in ('docker ps -aq --filter "ancestor=app_web_gestion_documental--app" --format "{{.ID}} {{.Names}}"') do (
-  if /I not "%%B"=="APP_GESTION_DOCUMENTAL" (
-    echo Eliminando huérfano %%B ^(%%A^)...
-    docker rm -f %%A
+set "DELETED=0"
+
+for /f "usebackq tokens=1,2 delims=|" %%A in (`docker ps -a --format "{{.ID}}|{{.Names}}"`) do (
+  if /I "%%B"=="APP_GESTION_DOCUMENTAL" (
+    echo Conservando: %%B
+  ) else if /I "%%B"=="gestion_documental_db" (
+    echo Conservando: %%B
+  ) else (
+    for /f "usebackq delims=" %%I in (`docker inspect -f "{{.Config.Image}}" %%A 2^>nul`) do (
+      echo %%I | findstr /I "app_web_gestion_documental" >nul
+      if not errorlevel 1 (
+        echo Eliminando huerfano: %%B ^(%%A^) imagen=%%I
+        docker rm -f %%A >nul
+        if not errorlevel 1 set /a DELETED+=1
+      ) else (
+        echo Omitiendo: %%B ^(otra imagen^)
+      )
+    )
   )
 )
 
 echo.
-echo Listo. Verifica el stack:
-docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+echo Huerfanos eliminados: %DELETED%
 echo.
-echo Si faltan contenedores: docker compose up -d
+echo Estado actual:
+docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+echo.
+echo Si falta APP_GESTION_DOCUMENTAL, ejecuta AHORA:
+echo   docker compose up -d
+echo.
+pause
+endlocal
