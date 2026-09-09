@@ -1,75 +1,48 @@
 # RESPALDOS_APP_BDD
 
-Respaldos **externos** (no tocan la lógica de la app):
+Respaldos **externos** (no tocan la lógica de la app).
 
-1. **BDD** → `gestion_documental_YYYYMMDD_HHMMSS.sql` (`pg_dump`)
-2. **Archivos** → `uploads_YYYYMMDD_HHMMSS.zip` (carpeta `uploads` del proyecto)
+Cada ejecución genera **un solo ZIP**:
+
+```text
+respaldo_completo_YYYYMMDD_HHMMSS.zip
+  ├── gestion_documental.sql    ← dump de la BDD
+  └── uploads\                  ← archivos subidos
+        └── ...
+```
 
 ## Dónde se guardan (servidor Windows)
 
-Por defecto el script escribe en el Escritorio:
-
 ```text
-C:\Users\ServerDell\Desktop\RESPALDOS_APP_BDD\
-  gestion_documental_....sql
-  uploads_....zip
+C:\Users\ServerDell\Desktop\RESPALDOS_APP_BDD\respaldo_completo_....zip
 ```
 
-Variable opcional:
-
-```bat
-set BACKUP_DIR=D:\Backups\GestionDocumental
-scripts\backup_db.bat
-```
-
-Los `.sql` / `.zip` **no se suben a git**.
-
-## Cómo respaldar (Windows, sin Python)
+## Cómo respaldar
 
 ```bat
 scripts\backup_db.bat
 ```
 
-## Programador de tareas (automático diario)
+## Programador de tareas
 
-Misma tarea que antes; el `.bat` ahora respalda BDD **y** uploads:
+Misma ruta de siempre:
 
-- Programa: `C:\Users\ServerDell\Desktop\app_web_gestion_documental-\scripts\backup_db.bat`
-- Iniciar en: `C:\Users\ServerDell\Desktop\app_web_gestion_documental-`
-- Diario, p. ej. 02:00
-
-## Cómo respaldar (Mac)
-
-```bash
-python3 scripts/backup_db.py --desktop --retain 14
-```
+- Programa: `...\app_web_gestion_documental-\scripts\backup_db.bat`
+- Iniciar en: `...\app_web_gestion_documental-`
+- Diario (p. ej. 02:00)
+- Retiene los **14** ZIP más recientes
 
 ## Restaurar
 
-### Base de datos
-
-```bat
-docker exec -i gestion_documental_db psql -U postgres -d gestion_documental < C:\Users\ServerDell\Desktop\RESPALDOS_APP_BDD\gestion_documental_YYYYMMDD_HHMMSS.sql
-```
-
-### Archivos uploads
-
-1. Detener app (opcional): `docker compose stop app`
-2. Descomprimir el ZIP sobre la carpeta `uploads` del proyecto
-3. `docker compose start app`
-
-## Política sugerida
-
-| Qué | Valor |
-|-----|--------|
-| Frecuencia | Diario |
-| Retención | 14 de cada tipo (SQL y ZIP) |
-| Contenedor BDD | `gestion_documental_db` |
-| Carpeta archivos | `./uploads` (montada en Docker) |
-| No usar | `docker compose down -v` |
+1. Descomprimir el ZIP.
+2. BDD:
+   ```bat
+   docker exec -i gestion_documental_db psql -U postgres -d gestion_documental < gestion_documental.sql
+   ```
+3. Archivos: copiar el contenido de `uploads\` del ZIP sobre la carpeta `uploads` del proyecto.
 
 ## Qué NO hace
 
-- No vacía ni reinicia la base.
+- No vacía la base.
 - No cambia `RUN_DB_INIT`.
-- No modifica código Flask ni el scheduler.
+- No modifica código Flask.

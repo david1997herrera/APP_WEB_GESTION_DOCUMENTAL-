@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Respaldo completo (BDD + uploads) vía docker/pg_dump y zip.
+Respaldo completo en UN ZIP: gestion_documental.sql + carpeta uploads/.
 No modifica la lógica de la aplicación.
 """
 
@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -74,38 +75,36 @@ def run_pg_dump(container: str, db_user: str, db_name: str, out_file: Path) -> N
         raise SystemExit(f"ERROR: pg_dump falló:\n{err}")
 
 
-def zip_uploads(uploads_dir: Path, out_zip: Path) -> bool:
-    if not uploads_dir.exists():
-        print(f"AVISO: no existe {uploads_dir}; se omite ZIP.")
-        return False
-    files = [p for p in uploads_dir.rglob("*") if p.is_file()]
-    if not files:
-        print("AVISO: uploads sin archivos; se omite ZIP.")
-        return False
+def build_zip(sql_file: Path, uploads_dir: Path, out_zip: Path) -> None:
     with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for path in files:
-            zf.write(path, arcname=str(path.relative_to(uploads_dir)))
-    return True
+        zf.write(sql_file, arcname="gestion_documental.sql")
+        if uploads_dir.exists():
+            for path in uploads_dir.rglob("*"):
+                if path.is_file():
+                    zf.write(path, arcname=str(Path("uploads") / path.relative_to(uploads_dir)))
 
 
 def prune_old_backups(folder: Path, retain: int) -> None:
     if retain <= 0:
         return
-    for pattern in ("gestion_documental_*.sql", "gestion_documental_*.dump", "uploads_*.zip"):
-        files = sorted(folder.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
-        for old in files[retain:]:
-            old.unlink(missing_ok=True)
-            print(f"Eliminado respaldo antiguo: {old.name}")
+    files = sorted(
+        folder.glob("respaldo_completo_*.zip"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for old in files[retain:]:
+        old.unlink(missing_ok=True)
+        print(f"Eliminado respaldo antiguo: {old.name}")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Respaldo Postgres + uploads")
+    parser = argparse.ArgumentParser(description="Respaldo completo (SQL + uploads) en un ZIP")
     parser.add_argument("--desktop", action="store_true", help="Guardar en Desktop/RESPALDOS_APP_BDD")
     parser.add_argument(
         "--retain",
         type=int,
         default=int(os.getenv("BACKUP_RETAIN", "14")),
-        help="Cuántos respaldos recientes conservar (0 = no borrar)",
+        help="Cuántos ZIPs recientes conservar (0 = no borrar)",
     )
     parser.add_argument("--container", default=DEFAULT_CONTAINER)
     parser.add_argument("--db", default=DEFAULT_DB)
@@ -122,19 +121,21 @@ def main() -> int:
     backup_dir = resolve_backup_dir(args.desktop)
     backup_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_zip = backup_dir / f"respaldo_completo_{stamp}.zip"
 
-    out_sql = backup_dir / f"gestion_documental_{stamp}.sql"
-    print(f"1/2 BDD -> {out_sql}")
-    run_pg_dump(args.container, args.user, args.db, out_sql)
-    print(f"OK BDD ({out_sql.stat().st_size / (1024 * 1024):.2f} MB)")
+    with tempfile.TemporaryDirectory(prefix="gd_backup_") as tmp:
+        tmp_path = Path(tmp)
+        sql_file = tmp_path / "gestion_documental.sql"
+        print("1/2 Dump BDD...")
+        run_pg_dump(args.container, args.user, args.db, sql_file)
+        print(f"OK BDD ({sql_file.stat().st_size / 1024:.1f} KB)")
 
-    out_zip = backup_dir / f"uploads_{stamp}.zip"
-    print(f"2/2 uploads -> {out_zip}")
-    if zip_uploads(project_root() / "uploads", out_zip):
-        print(f"OK uploads ({out_zip.stat().st_size / (1024 * 1024):.2f} MB)")
+        print(f"2/2 ZIP -> {out_zip}")
+        build_zip(sql_file, project_root() / "uploads", out_zip)
 
+    print(f"OK ZIP ({out_zip.stat().st_size / (1024 * 1024):.2f} MB)")
     prune_old_backups(backup_dir, args.retain)
-    print(f"Listo en: {backup_dir}")
+    print("Contiene: gestion_documental.sql + uploads/")
     return 0
 
 

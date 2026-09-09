@@ -1,9 +1,9 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-REM Respaldo completo sin Python:
-REM  1) BDD  -> pg_dump (docker)
-REM  2) uploads -> ZIP del volumen montado ./uploads
-REM Guarda en Escritorio\RESPALDOS_APP_BDD (o BACKUP_DIR).
+REM Respaldo completo en UN solo ZIP:
+REM   - gestion_documental.sql  (pg_dump)
+REM   - uploads\...             (archivos de la app)
+REM Destino: Escritorio\RESPALDOS_APP_BDD (o BACKUP_DIR)
 
 cd /d "%~dp0.."
 
@@ -12,6 +12,7 @@ set "DB_NAME=gestion_documental"
 set "DB_USER=postgres"
 set "RETAIN=14"
 set "UPLOADS_DIR=%CD%\uploads"
+set "TMPDIR=%TEMP%\gd_backup_%RANDOM%"
 
 if defined BACKUP_DIR (
   set "OUTDIR=%BACKUP_DIR%"
@@ -33,77 +34,74 @@ if errorlevel 1 (
 )
 
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
+mkdir "%TMPDIR%" >nul 2>&1
+mkdir "%TMPDIR%\uploads" >nul 2>&1
 
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "STAMP=%%I"
-set "OUTSQL=%OUTDIR%\gestion_documental_%STAMP%.sql"
-set "OUTZIP=%OUTDIR%\uploads_%STAMP%.zip"
+set "OUTZIP=%OUTDIR%\respaldo_completo_%STAMP%.zip"
+set "TMPSQL=%TMPDIR%\gestion_documental.sql"
 
 echo ============================================
-echo 1/2 Respaldo BDD
+echo 1/3 Dump BDD
 echo ============================================
-echo   %OUTSQL%
-
-docker exec %CONTAINER% pg_dump -U %DB_USER% -d %DB_NAME% --no-owner --no-acl > "%OUTSQL%"
+docker exec %CONTAINER% pg_dump -U %DB_USER% -d %DB_NAME% --no-owner --no-acl > "%TMPSQL%"
 if errorlevel 1 (
   echo ERROR: fallo pg_dump.
-  if exist "%OUTSQL%" del /f /q "%OUTSQL%"
+  rmdir /s /q "%TMPDIR%" >nul 2>&1
   exit /b 1
 )
-
-for %%A in ("%OUTSQL%") do set "SQLSIZE=%%~zA"
+for %%A in ("%TMPSQL%") do set "SQLSIZE=%%~zA"
 if "!SQLSIZE!"=="0" (
   echo ERROR: el SQL quedo vacio.
-  del /f /q "%OUTSQL%"
+  rmdir /s /q "%TMPDIR%" >nul 2>&1
   exit /b 1
 )
 echo OK BDD (!SQLSIZE! bytes)
 
 echo.
 echo ============================================
-echo 2/2 Respaldo uploads
+echo 2/3 Copiar uploads
 echo ============================================
-if not exist "%UPLOADS_DIR%" (
-  echo AVISO: no existe la carpeta uploads: %UPLOADS_DIR%
-  echo Se omite el ZIP de archivos.
-  goto PRUNE
+if exist "%UPLOADS_DIR%" (
+  robocopy "%UPLOADS_DIR%" "%TMPDIR%\uploads" /E /NFL /NDL /NJH /NJS /nc /ns /np >nul
+  set "RC=!ERRORLEVEL!"
+  if !RC! GEQ 8 (
+    echo ERROR: fallo al copiar uploads ^(robocopy code !RC!^).
+    rmdir /s /q "%TMPDIR%" >nul 2>&1
+    exit /b 1
+  )
+  echo OK uploads copiados
+) else (
+  echo AVISO: no existe %UPLOADS_DIR% — el ZIP ira solo con el SQL
 )
 
-echo   Origen: %UPLOADS_DIR%
-echo   Destino: %OUTZIP%
-
-REM Si uploads esta vacia, Compress-Archive puede fallar: crear zip vacio-safe
-dir /a-d /s "%UPLOADS_DIR%" >nul 2>&1
+echo.
+echo ============================================
+echo 3/3 Generar ZIP unico
+echo ============================================
+echo   %OUTZIP%
+powershell -NoProfile -Command "Compress-Archive -Path '%TMPSQL%','%TMPDIR%\uploads' -DestinationPath '%OUTZIP%' -Force"
 if errorlevel 1 (
-  echo AVISO: uploads sin archivos; se omite ZIP.
-  goto PRUNE
-)
-
-powershell -NoProfile -Command "Compress-Archive -Path '%UPLOADS_DIR%\*' -DestinationPath '%OUTZIP%' -Force"
-if errorlevel 1 (
-  echo ERROR: fallo al comprimir uploads.
+  echo ERROR: fallo al crear el ZIP.
+  rmdir /s /q "%TMPDIR%" >nul 2>&1
   exit /b 1
 )
 
-if not exist "%OUTZIP%" (
-  echo AVISO: no se genero ZIP.
-  goto PRUNE
-)
-
 for %%A in ("%OUTZIP%") do set "ZIPSIZE=%%~zA"
-echo OK uploads (!ZIPSIZE! bytes)
+echo OK ZIP (!ZIPSIZE! bytes)
 
-:PRUNE
+rmdir /s /q "%TMPDIR%" >nul 2>&1
+
 echo.
 echo Limpiando respaldos antiguos ^(retener %RETAIN%^)...
 powershell -NoProfile -Command ^
   "$dir='%OUTDIR%'; $keep=%RETAIN%;" ^
-  "foreach ($pat in @('gestion_documental_*.sql','uploads_*.zip')) {" ^
-  "  $files=Get-ChildItem -Path $dir -Filter $pat -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending;" ^
-  "  if ($keep -gt 0 -and $files.Count -gt $keep) { $files | Select-Object -Skip $keep | ForEach-Object { Write-Host ('Eliminado antiguo: ' + $_.Name); Remove-Item -Force $_.FullName } }" ^
-  "}"
+  "$files=Get-ChildItem -Path $dir -Filter 'respaldo_completo_*.zip' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending;" ^
+  "if ($keep -gt 0 -and $files.Count -gt $keep) { $files | Select-Object -Skip $keep | ForEach-Object { Write-Host ('Eliminado antiguo: ' + $_.Name); Remove-Item -Force $_.FullName } }"
 
 echo.
-echo Listo. Archivos en:
-echo   %OUTDIR%
+echo Listo. Un solo archivo:
+echo   %OUTZIP%
+echo Contiene: gestion_documental.sql + carpeta uploads\
 endlocal
 exit /b 0
