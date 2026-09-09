@@ -141,12 +141,12 @@ def download(file_id):
     """Descargar archivo desde el repositorio"""
     file_record = File.query.get_or_404(file_id)
     
-    if not os.path.exists(file_record.path):
+    if not os.path.exists(file_record.file_path):
         flash('El archivo no existe en el servidor', 'error')
         return redirect(url_for('files_repo.index'))
     
     return send_file(
-        file_record.path,
+        file_record.file_path,
         as_attachment=True,
         download_name=file_record.original_filename,
         mimetype=file_record.file_type
@@ -160,17 +160,18 @@ def delete(file_id):
     file_record = File.query.get_or_404(file_id)
     
     try:
+        task_id = file_record.task_id
         # Eliminar archivo físico
-        if os.path.exists(file_record.path):
-            os.remove(file_record.path)
+        if os.path.exists(file_record.file_path):
+            os.remove(file_record.file_path)
         
         # Eliminar registro de la base de datos
         db.session.delete(file_record)
         db.session.commit()
         
         # Actualizar contador de archivos de la tarea
-        if file_record.task_id:
-            task = Task.query.get(file_record.task_id)
+        if task_id:
+            task = Task.query.get(task_id)
             if task:
                 task.update_file_count()
         
@@ -213,8 +214,8 @@ def bulk_delete():
             file_record = File.query.get(file_id)
             if file_record:
                 # Eliminar archivo físico
-                if os.path.exists(file_record.path):
-                    os.remove(file_record.path)
+                if os.path.exists(file_record.file_path):
+                    os.remove(file_record.file_path)
                 
                 # Eliminar registro de la base de datos
                 db.session.delete(file_record)
