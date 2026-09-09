@@ -57,12 +57,25 @@ def _add_frequency_interval(current: datetime, frequency: str, interval: int) ->
     return current + timedelta(days=safe_interval)
 
 
-def _create_generated_tasks_for_schedule(scheduled: ScheduledTask) -> bool:
-    """Crear tareas derivadas para todos los usuarios asignados."""
+def _task_already_generated_for_run(scheduled_id: int, user_id: int, run_at: datetime) -> bool:
+    """Idempotencia: evita recrear la misma tarea para el mismo disparo (run_at)."""
+    existing = Task.query.filter(
+        Task.scheduled_task_id == scheduled_id,
+        Task.assigned_to == user_id,
+        Task.created_at >= run_at,
+    ).first()
+    return existing is not None
+
+
+def _create_generated_tasks_for_schedule(scheduled: ScheduledTask, run_at: datetime) -> bool:
+    """Crear tareas derivadas para usuarios asignados (sin duplicar el mismo disparo)."""
     if not scheduled.assigned_users:
         return False
 
+    created_any = False
     for user in scheduled.assigned_users:
+        if _task_already_generated_for_run(scheduled.id, user.id, run_at):
+            continue
         task = Task(
             title=scheduled.title,
             description=scheduled.description,
@@ -73,11 +86,12 @@ def _create_generated_tasks_for_schedule(scheduled: ScheduledTask) -> bool:
             scheduled_task_id=scheduled.id,
         )
         db.session.add(task)
-    return True
+        created_any = True
+    return created_any
 
 
 def _process_single_scheduled_task(scheduled: ScheduledTask, reference: datetime) -> bool:
-    """Procesar una tarea programada puntual; devuelve True si generó tareas."""
+    """Procesar una tarea programada puntual; True si se procesó el disparo (avance next_run_at)."""
     # Respetar fecha de inicio
     if scheduled.start_date and scheduled.start_date > reference:
         return False
@@ -94,11 +108,15 @@ def _process_single_scheduled_task(scheduled: ScheduledTask, reference: datetime
     if run_at > reference:
         return False
 
-    generated = _create_generated_tasks_for_schedule(scheduled)
-    if generated:
-        scheduled.next_run_at = _calculate_next_run_at(scheduled, reference)
-        scheduled.updated_at = reference
-    return generated
+    # Sin asignados no avanzamos next_run_at (mismo comportamiento previo)
+    if not scheduled.assigned_users:
+        return False
+
+    _create_generated_tasks_for_schedule(scheduled, run_at)
+    # Avanzar siempre tras un disparo debido: evita reintentos infinitos si ya existían tareas
+    scheduled.next_run_at = _calculate_next_run_at(scheduled, reference)
+    scheduled.updated_at = reference
+    return True
 
 
 @scheduled_task_bp.route('/')
@@ -249,6 +267,15 @@ def edit(task_id):
                 flash('Formato de fecha de fin inválido.', 'error')
                 return render_template('scheduled_tasks/edit.html', task=task, areas=areas, users=users)
 
+        # Solo recalcular next_run_at si cambió la calendarización (evita regenerar al editar texto)
+        schedule_changed = (
+            task.frequency != frequency
+            or int(task.interval or 1) != int(interval)
+            or task.start_date != start_date_obj
+            or task.run_time != run_time_obj
+            or task.end_date != end_date_obj
+        )
+
         task.title = title
         task.description = description
         task.area_id = int(area_id)
@@ -259,7 +286,8 @@ def edit(task_id):
         task.run_time = run_time_obj
         task.end_date = end_date_obj
         task.is_active = is_active
-        task.next_run_at = _align_datetime_with_run_time(start_date_obj, run_time_obj)
+        if schedule_changed:
+            task.next_run_at = _align_datetime_with_run_time(start_date_obj, run_time_obj)
         task.updated_at = datetime.utcnow()
 
         if assigned_user_ids:
@@ -270,10 +298,11 @@ def edit(task_id):
         try:
             db.session.commit()
 
-            # Catch-up al editar: si ya tocaba correr, generar al guardar.
-            now = datetime.utcnow()
-            if _process_single_scheduled_task(task, now):
-                db.session.commit()
+            # Catch-up solo si cambió la calendarización (idempotente).
+            if schedule_changed:
+                now = datetime.utcnow()
+                if _process_single_scheduled_task(task, now):
+                    db.session.commit()
 
             flash('Tarea programada actualizada correctamente.', 'success')
             return redirect(url_for('scheduled_task.index'))
@@ -327,12 +356,23 @@ def process_scheduled_tasks():
     """Generar tareas normales a partir de tareas programadas que toquen hoy/ahora."""
     now = datetime.utcnow()
 
-    active_tasks = ScheduledTask.query.filter(
-        ScheduledTask.is_active.is_(True),
-        ScheduledTask.start_date <= now,
-    ).all()
+    active_ids = [
+        row.id
+        for row in ScheduledTask.query.filter(
+            ScheduledTask.is_active.is_(True),
+            ScheduledTask.start_date <= now,
+        ).with_entities(ScheduledTask.id).all()
+    ]
 
-    for scheduled in active_tasks:
+    for scheduled_id in active_ids:
+        # Bloqueo de fila: evita doble generación si hay dos procesos/schedulers concurrentes
+        scheduled = (
+            ScheduledTask.query.filter_by(id=scheduled_id)
+            .with_for_update()
+            .first()
+        )
+        if not scheduled or not scheduled.is_active:
+            continue
         _process_single_scheduled_task(scheduled, now)
 
     db.session.commit()

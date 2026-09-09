@@ -1,5 +1,11 @@
 version: '3.8'
 
+# IMPORTANTE:
+# - Usar siempre: docker compose up -d   (NO "Run" sobre la imagen: crea huérfanos tipo hardcore_lamarr)
+# - RUN_DB_INIT=false NO borra la BDD. Solo evita create_all/admin seed al arrancar.
+# - Nunca usar: docker compose down -v   (eso SÍ borra el volumen postgres_data)
+# - Respaldos: scripts/backup_db.py  (carpeta RESPALDOS_APP_BDD)
+
 services:
   app:
     build: .
@@ -15,6 +21,7 @@ services:
       - MAIL_PORT=587
       - MAIL_USE_TLS=True
       - APP_BASE_URL=http://131.196.8.22:3110
+      # false = no ejecuta init_db al arrancar. NO vacía datos existentes.
       - RUN_DB_INIT=false
     volumes:
       - ./uploads:/app/uploads

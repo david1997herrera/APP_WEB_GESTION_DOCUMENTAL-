@@ -136,6 +136,14 @@ app/uploads/
 *.db
 *.sqlite3
 
+# Respaldos locales (política RESPALDOS_APP_BDD) — no subir dumps al repo
+RESPALDOS_APP_BDD/*.sql
+RESPALDOS_APP_BDD/*.dump
+RESPALDOS_APP_BDD/*.gz
+Desktop/RESPALDOS_APP_BDD/
+reporte_duplicidad_tareas.xlsx
+~$*.xlsx
+
 # IDE
 .vscode/
 .idea/
