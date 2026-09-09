@@ -33,23 +33,20 @@ Los archivos `.sql` / `.dump` de esta carpeta **no se suben a git** (están en `
 ## Cómo respaldar (servidor Windows)
 
 1. Docker Desktop con `gestion_documental_db` en ejecución.
-2. Desde la carpeta del proyecto:
+2. Desde la carpeta del proyecto (**no requiere Python**):
 
 ```bat
 scripts\backup_db.bat
 ```
 
-o:
-
-```bat
-python scripts\backup_db.py --desktop
-```
+Guarda en: `%USERPROFILE%\Desktop\RESPALDOS_APP_BDD\`
 
 3. Programar en **Programador de tareas de Windows** (diario, p. ej. 02:00):
 
-- Programa: `python` (o ruta completa a `python.exe`)
-- Argumentos: `scripts\backup_db.py --desktop --retain 14`
-- Iniciar en: ruta del repo (donde está `docker-compose.yml`)
+- Programa: `C:\Users\ServerDell\Desktop\app_web_gestion_documental-\scripts\backup_db.bat`
+- Iniciar en: `C:\Users\ServerDell\Desktop\app_web_gestion_documental-`
+
+(Opcional si tienes Python: `python scripts\backup_db.py --desktop`)
 
 ## Cómo respaldar (Mac)
 
