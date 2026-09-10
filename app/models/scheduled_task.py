@@ -55,7 +55,9 @@ class ScheduledTask(db.Model):
             'diaria': 'Diaria',
             'semanal': 'Semanal',
             'mensual': 'Mensual',
-            'personalizada': 'Personalizada',
+            'trimestral': 'Trimestral',
+            'semestral': 'Semestral',
+            'personalizada': 'Personalizada (días)',
         }
         return mapping.get(self.frequency, self.frequency.title())
 

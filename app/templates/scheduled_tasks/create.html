@@ -144,7 +144,9 @@
                                         <option value="diaria">Diaria</option>
                                         <option value="semanal">Semanal</option>
                                         <option value="mensual">Mensual</option>
-                                        <option value="personalizada">Otra</option>
+                                        <option value="trimestral">Trimestral (cada 3 meses)</option>
+                                        <option value="semestral">Semestral (cada 6 meses)</option>
+                                        <option value="personalizada">Otra (cada N días)</option>
                                     </select>
                                     <div class="invalid-feedback">
                                         Selecciona una frecuencia.
@@ -228,13 +230,17 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateFrequencyTexts() {
         const value = frequencySelect.value;
         if (value === 'diaria') {
-            intervalLabel.textContent = 'Cada 1 día(s)';
+            intervalLabel.textContent = 'Cada N día(s)';
         } else if (value === 'semanal') {
-            intervalLabel.textContent = 'Cada 1 semana(s)';
+            intervalLabel.textContent = 'Cada N semana(s)';
         } else if (value === 'mensual') {
-            intervalLabel.textContent = 'Cada 1 mes(es)';
+            intervalLabel.textContent = 'Cada N mes(es)';
+        } else if (value === 'trimestral') {
+            intervalLabel.textContent = 'Cada N trimestre(s)';
+        } else if (value === 'semestral') {
+            intervalLabel.textContent = 'Cada N semestre(s)';
         } else {
-            intervalLabel.textContent = 'Intervalo';
+            intervalLabel.textContent = 'Cada N días';
         }
     }
 

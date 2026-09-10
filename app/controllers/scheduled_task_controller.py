@@ -53,7 +53,11 @@ def _add_frequency_interval(current: datetime, frequency: str, interval: int) ->
     if frequency == 'mensual':
         # Aproximación actual del proyecto: 30 días por mes
         return current + timedelta(days=30 * safe_interval)
-    # Por defecto, personalizada se trata como diaria
+    if frequency == 'trimestral':
+        return current + timedelta(days=90 * safe_interval)
+    if frequency == 'semestral':
+        return current + timedelta(days=180 * safe_interval)
+    # personalizada / otra: el intervalo se interpreta en DÍAS
     return current + timedelta(days=safe_interval)
 
 
@@ -112,10 +116,13 @@ def _process_single_scheduled_task(scheduled: ScheduledTask, reference: datetime
     if not scheduled.assigned_users:
         return False
 
-    _create_generated_tasks_for_schedule(scheduled, run_at)
-    # Avanzar siempre tras un disparo debido: evita reintentos infinitos si ya existían tareas
+    # IMPORTANTE: avanzar next_run_at ANTES de crear tareas.
+    # Si el usuario borra la tarea generada, el scheduler no la recrea en el mismo periodo.
     scheduled.next_run_at = _calculate_next_run_at(scheduled, reference)
     scheduled.updated_at = reference
+    db.session.flush()
+
+    _create_generated_tasks_for_schedule(scheduled, run_at)
     return True
 
 

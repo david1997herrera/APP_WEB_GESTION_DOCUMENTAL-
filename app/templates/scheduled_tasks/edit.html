@@ -71,7 +71,9 @@
                                     <option value="diaria" {% if task.frequency == 'diaria' %}selected{% endif %}>Diaria</option>
                                     <option value="semanal" {% if task.frequency == 'semanal' %}selected{% endif %}>Semanal</option>
                                     <option value="mensual" {% if task.frequency == 'mensual' %}selected{% endif %}>Mensual</option>
-                                    <option value="personalizada" {% if task.frequency == 'personalizada' %}selected{% endif %}>Personalizada</option>
+                                    <option value="trimestral" {% if task.frequency == 'trimestral' %}selected{% endif %}>Trimestral (cada 3 meses)</option>
+                                    <option value="semestral" {% if task.frequency == 'semestral' %}selected{% endif %}>Semestral (cada 6 meses)</option>
+                                    <option value="personalizada" {% if task.frequency == 'personalizada' %}selected{% endif %}>Otra (cada N días)</option>
                                 </select>
                                 <div class="invalid-feedback">
                                     Por favor selecciona una frecuencia.
