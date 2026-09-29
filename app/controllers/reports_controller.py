@@ -1,13 +1,11 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from flask_login import login_required, current_user
 from app.models.task import Task
 from app.models.area import Area
 from app.models.user import User
 from app.models.file import File
-from app.config import db
+from app.services.hoja_calculo import construir_libro
 from datetime import datetime, timedelta
-import csv
-import io
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -37,42 +35,12 @@ def index():
 @admin_required
 def tasks():
     """Reporte de tareas"""
-    # Obtener parámetros de filtro
+    tasks = _tareas_filtradas()
     area_id = request.args.get('area_id', type=int)
-    user_id = request.args.get('user_id', type=int)
     status = request.args.get('status', '')
+    priority = request.args.get('priority', '')
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
-    
-    # Construir consulta base
-    query = Task.query
-    
-    # Aplicar filtros
-    if area_id:
-        query = query.filter(Task.area_id == area_id)
-    
-    if user_id:
-        query = query.filter(Task.assigned_to == user_id)
-    
-    if status:
-        query = query.filter(Task.status == status)
-    
-    if date_from:
-        try:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
-            query = query.filter(Task.created_at >= date_from_obj)
-        except ValueError:
-            pass
-    
-    if date_to:
-        try:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
-            date_to_obj = date_to_obj + timedelta(days=1)
-            query = query.filter(Task.created_at < date_to_obj)
-        except ValueError:
-            pass
-    
-    tasks = query.order_by(Task.created_at.desc()).all()
     
     # Estadísticas
     total_tasks = len(tasks)
@@ -94,69 +62,33 @@ def tasks():
                          pending_tasks=pending_tasks,
                          in_progress_tasks=in_progress_tasks,
                          overdue_tasks=overdue_tasks,
-                         current_filters={
-                             'area_id': area_id,
-                             'user_id': user_id,
-                             'status': status,
-                             'date_from': date_from,
-                             'date_to': date_to
-                         })
+                         selected_area_id=area_id,
+                         selected_status=status,
+                         selected_priority=priority,
+                         selected_date_from=date_from,
+                         selected_date_to=date_to)
 
 @reports_bp.route('/users')
 @login_required
 @admin_required
 def users():
     """Reporte de usuarios"""
-    # Obtener parámetros de filtro
-    area_id = request.args.get('area_id', type=int)
-    role = request.args.get('role', '')
-    
-    # Construir consulta base
-    query = User.query.filter_by(is_active=True)
-    
-    # Aplicar filtros
-    if area_id:
-        query = query.join(User.area_assignments).filter(User.area_assignments.any(area_id=area_id))
-    
-    if role:
-        query = query.filter(User.role == role)
-    
-    users = query.order_by(User.created_at.desc()).all()
-    
-    # Estadísticas por usuario
-    user_stats = []
-    for user in users:
-        # Tareas asignadas
-        assigned_tasks = Task.query.filter(Task.assigned_to == user.id).all()
-        completed_tasks = len([t for t in assigned_tasks if t.status == 'completada'])
-        
-        # Archivos subidos
-        uploaded_files = File.query.filter(File.uploaded_by == user.id).count()
-        
-        # Áreas asignadas
-        assigned_areas = len(user.area_assignments)
-        
-        user_stats.append({
-            'user': user,
-            'assigned_tasks': len(assigned_tasks),
-            'completed_tasks': completed_tasks,
-            'uploaded_files': uploaded_files,
-            'assigned_areas': assigned_areas,
-            'completion_rate': round((completed_tasks / len(assigned_tasks)) * 100, 1) if assigned_tasks else 0
-        })
-    
-    # Datos para filtros
+    users = _usuarios_filtrados()
+    stats = {usuario.id: _estadistica_usuario(usuario) for usuario in users}
     areas = Area.query.filter_by(is_active=True).all()
-    roles = ['admin', 'escritura', 'lectura', 'edicion']
-    
-    return render_template('reports/users.html',
-                         user_stats=user_stats,
-                         areas=areas,
-                         roles=roles,
-                         current_filters={
-                             'area_id': area_id,
-                             'role': role
-                         })
+    return render_template(
+        'reports/users.html',
+        users=users,
+        user_stats=stats,
+        areas=areas,
+        selected_role=request.args.get('role', ''),
+        selected_area_id=request.args.get('area_id', type=int),
+        selected_status=request.args.get('status', ''),
+        total_users=len(users),
+        active_users=len([usuario for usuario in users if usuario.is_active]),
+        inactive_users=len([usuario for usuario in users if not usuario.is_active]),
+        total_files=sum(dato['uploaded_files'] for dato in stats.values()),
+    )
 
 @reports_bp.route('/areas')
 @login_required
@@ -194,7 +126,31 @@ def areas():
             'completion_rate': round((completed_tasks / len(area_tasks)) * 100, 1) if area_tasks else 0
         })
     
-    return render_template('reports/areas.html', area_stats=area_stats)
+    areas = []
+    stats_por_id = {}
+    total_tasks = 0
+    total_files = 0
+    for stat in area_stats:
+        area = stat['area']
+        areas.append(area)
+        stats_por_id[area.id] = {
+            'user_count': stat['assigned_users'],
+            'task_count': stat['total_tasks'],
+            'file_count': stat['total_files'],
+            'completion_rate': stat['completion_rate'],
+        }
+        total_tasks += stat['total_tasks']
+        total_files += stat['total_files']
+
+    return render_template(
+        'reports/areas.html',
+        areas=areas,
+        area_stats=stats_por_id,
+        total_areas=len(areas),
+        total_users=User.query.filter_by(is_active=True).count(),
+        total_tasks=total_tasks,
+        total_files=total_files,
+    )
 
 @reports_bp.route('/files')
 @login_required
@@ -244,149 +200,276 @@ def files():
         file_type = file.file_type.split('/')[0] if '/' in file.file_type else 'other'
         file_types[file_type] = file_types.get(file_type, 0) + 1
     
-    # Archivos por área
     area_files = {}
     for file in files:
-        area_name = file.task.area.name
-        if area_name not in area_files:
-            area_files[area_name] = 0
-        area_files[area_name] += 1
-    
-    # Datos para filtros
+        area_name = file.task.area.name if file.task and file.task.area else 'Sin área'
+        actual = area_files.setdefault(area_name, {'count': 0, 'size': 0})
+        actual['count'] += 1
+        actual['size'] += file.file_size or 0
+    for datos in area_files.values():
+        datos['size_mb'] = round(datos['size'] / (1024 * 1024), 2)
+
     areas = Area.query.filter_by(is_active=True).all()
-    
-    return render_template('reports/files.html',
-                         files=files,
-                         areas=areas,
-                         total_files=total_files,
-                         total_size=total_size,
-                         file_types=file_types,
-                         area_files=area_files,
-                         current_filters={
-                             'area_id': area_id,
-                             'file_type': file_type,
-                             'date_from': date_from,
-                             'date_to': date_to
-                         })
+
+    return render_template(
+        'reports/files.html',
+        files=files,
+        areas=areas,
+        total_files=total_files,
+        total_size=total_size,
+        total_size_mb=round((total_size or 0) / (1024 * 1024), 1),
+        file_types=file_types,
+        area_files=area_files,
+        selected_area_id=area_id,
+        selected_file_type=file_type,
+        selected_date_from=date_from,
+        selected_date_to=date_to,
+    )
+
+def _responder_excel(titulo, columnas, filas, nombre):
+    libro = construir_libro(titulo, columnas, filas)
+    marca = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        libro,
+        as_attachment=True,
+        download_name=f'{nombre}_{marca}.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@reports_bp.route('/export/tasks/xlsx')
+@login_required
+@admin_required
+def exportar_tareas():
+    """Descarga el reporte de tareas en Excel, con el banner de la empresa."""
+    filas = []
+    for tarea in _tareas_filtradas():
+        filas.append([
+            tarea.id,
+            tarea.title,
+            tarea.description or '',
+            tarea.area.name if tarea.area else '',
+            tarea.assignee.username if tarea.assignee else '',
+            tarea.creator.username if tarea.creator else '',
+            (tarea.status or '').replace('_', ' '),
+            tarea.priority or '',
+            tarea.required_files,
+            tarea.uploaded_files,
+            tarea.due_date.strftime('%d/%m/%Y') if tarea.due_date else '',
+            tarea.created_at.strftime('%d/%m/%Y %H:%M') if tarea.created_at else '',
+            tarea.completed_at.strftime('%d/%m/%Y %H:%M') if tarea.completed_at else '',
+        ])
+    return _responder_excel(
+        'Reporte de tareas',
+        ['ID', 'Título', 'Descripción', 'Área', 'Asignado a', 'Creado por',
+         'Estado', 'Prioridad', 'Archivos requeridos', 'Archivos subidos',
+         'Fecha límite', 'Fecha de creación', 'Fecha completada'],
+        filas,
+        'tareas',
+    )
+
+
+@reports_bp.route('/export/users/xlsx')
+@login_required
+@admin_required
+def exportar_usuarios():
+    """Descarga el reporte de usuarios en Excel."""
+    filas = []
+    for usuario in _usuarios_filtrados():
+        dato = _estadistica_usuario(usuario)
+        filas.append([
+            usuario.id,
+            usuario.username,
+            usuario.email,
+            usuario.role,
+            'Activo' if usuario.is_active else 'Inactivo',
+            dato['assigned_areas'],
+            dato['assigned_tasks'],
+            dato['completed_tasks'],
+            dato['uploaded_files'],
+            dato['completion_rate'],
+            usuario.created_at.strftime('%d/%m/%Y') if usuario.created_at else '',
+        ])
+    return _responder_excel(
+        'Reporte de usuarios',
+        ['ID', 'Usuario', 'Correo', 'Rol', 'Estado', 'Áreas',
+         'Tareas asignadas', 'Tareas completadas', 'Archivos subidos',
+         'Avance (%)', 'Fecha de creación'],
+        filas,
+        'usuarios',
+    )
+
+
+@reports_bp.route('/export/areas/xlsx')
+@login_required
+@admin_required
+def exportar_areas():
+    """Descarga el reporte de áreas en Excel."""
+    filas = []
+    for stat in _estadisticas_areas():
+        area = stat['area']
+        filas.append([
+            area.id,
+            area.name,
+            area.description or '',
+            stat['assigned_users'],
+            stat['total_tasks'],
+            stat['completed_tasks'],
+            stat['pending_tasks'],
+            stat['in_progress_tasks'],
+            stat['overdue_tasks'],
+            stat['total_files'],
+            round((stat['total_size'] or 0) / (1024 * 1024), 2),
+            stat['completion_rate'],
+            'Activa' if area.is_active else 'Inactiva',
+        ])
+    return _responder_excel(
+        'Reporte de áreas',
+        ['ID', 'Área', 'Descripción', 'Usuarios', 'Tareas', 'Completadas',
+         'Pendientes', 'En progreso', 'Vencidas', 'Archivos', 'Tamaño (MB)',
+         'Avance (%)', 'Estado'],
+        filas,
+        'areas',
+    )
+
+
+@reports_bp.route('/export/files/xlsx')
+@login_required
+@admin_required
+def exportar_archivos():
+    """Descarga el reporte de archivos en Excel."""
+    filas = []
+    for archivo in _archivos_filtrados():
+        filas.append([
+            archivo.id,
+            archivo.original_filename,
+            archivo.file_type or '',
+            archivo.get_file_size_mb(),
+            archivo.task.area.name if archivo.task and archivo.task.area else '',
+            archivo.task.title if archivo.task else '',
+            archivo.uploader.username if archivo.uploader else '',
+            archivo.uploaded_at.strftime('%d/%m/%Y %H:%M') if archivo.uploaded_at else '',
+        ])
+    return _responder_excel(
+        'Reporte de archivos',
+        ['ID', 'Nombre', 'Tipo', 'Tamaño (MB)', 'Área', 'Tarea', 'Subido por', 'Fecha'],
+        filas,
+        'archivos',
+    )
+
 
 @reports_bp.route('/export/tasks/csv')
 @login_required
 @admin_required
 def export_tasks_csv():
-    """Exportar reporte de tareas a CSV"""
-    # Obtener parámetros de filtro (mismos que en tasks())
-    area_id = request.args.get('area_id', type=int)
-    user_id = request.args.get('user_id', type=int)
-    status = request.args.get('status', '')
-    date_from = request.args.get('date_from', '')
-    date_to = request.args.get('date_to', '')
-    
-    # Construir consulta base
-    query = Task.query
-    
-    # Aplicar filtros
-    if area_id:
-        query = query.filter(Task.area_id == area_id)
-    if user_id:
-        query = query.filter(Task.assigned_to == user_id)
-    if status:
-        query = query.filter(Task.status == status)
-    if date_from:
-        try:
-            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
-            query = query.filter(Task.created_at >= date_from_obj)
-        except ValueError:
-            pass
-    if date_to:
-        try:
-            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
-            date_to_obj = date_to_obj + timedelta(days=1)
-            query = query.filter(Task.created_at < date_to_obj)
-        except ValueError:
-            pass
-    
-    tasks = query.order_by(Task.created_at.desc()).all()
-    
-    # Crear CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Escribir encabezados
-    writer.writerow([
-        'ID', 'Título', 'Descripción', 'Área', 'Asignado a', 'Creado por',
-        'Estado', 'Prioridad', 'Archivos Requeridos', 'Archivos Subidos',
-        'Fecha Límite', 'Fecha Creación', 'Fecha Completada'
-    ])
-    
-    # Escribir datos
-    for task in tasks:
-        writer.writerow([
-            task.id,
-            task.title,
-            task.description or '',
-            task.area.name,
-            task.assignee.username if task.assignee else '',
-            task.creator.username if task.creator else '',
-            task.status,
-            task.priority,
-            task.required_files,
-            task.uploaded_files,
-            task.due_date.strftime('%Y-%m-%d') if task.due_date else '',
-            task.created_at.strftime('%Y-%m-%d %H:%M'),
-            task.completed_at.strftime('%Y-%m-%d %H:%M') if task.completed_at else ''
-        ])
-    
-    # Preparar respuesta
-    output.seek(0)
-    response = make_response(output.getvalue())
-    response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename=tareas_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    
-    return response
+    return exportar_tareas()
+
 
 @reports_bp.route('/export/users/csv')
 @login_required
 @admin_required
 def export_users_csv():
-    """Exportar reporte de usuarios a CSV"""
-    users = User.query.filter_by(is_active=True).all()
-    
-    # Crear CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Escribir encabezados
-    writer.writerow([
-        'ID', 'Usuario', 'Email', 'Rol', 'Áreas Asignadas',
-        'Tareas Asignadas', 'Tareas Completadas', 'Archivos Subidos',
-        'Tasa de Finalización (%)', 'Fecha Creación'
-    ])
-    
-    # Escribir datos
-    for user in users:
-        assigned_tasks = Task.query.filter(Task.assigned_to == user.id).all()
-        completed_tasks = len([t for t in assigned_tasks if t.status == 'completada'])
-        uploaded_files = File.query.filter(File.uploaded_by == user.id).count()
-        assigned_areas = len(user.area_assignments)
-        completion_rate = round((completed_tasks / len(assigned_tasks)) * 100, 1) if assigned_tasks else 0
-        
-        writer.writerow([
-            user.id,
-            user.username,
-            user.email,
-            user.role,
-            assigned_areas,
-            len(assigned_tasks),
-            completed_tasks,
-            uploaded_files,
-            completion_rate,
-            user.created_at.strftime('%Y-%m-%d %H:%M')
-        ])
-    
-    # Preparar respuesta
-    output.seek(0)
-    response = make_response(output.getvalue())
-    response.headers['Content-Type'] = 'text/csv'
-    response.headers['Content-Disposition'] = f'attachment; filename=usuarios_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    
-    return response
+    return exportar_usuarios()
+
+
+def _tareas_filtradas():
+    area_id = request.args.get('area_id', type=int)
+    user_id = request.args.get('user_id', type=int)
+    status = request.args.get('status', '')
+    priority = request.args.get('priority', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    consulta = Task.query
+    if area_id:
+        consulta = consulta.filter(Task.area_id == area_id)
+    if user_id:
+        consulta = consulta.filter(Task.assigned_to == user_id)
+    if status:
+        consulta = consulta.filter(Task.status == status)
+    if priority:
+        consulta = consulta.filter(Task.priority == priority)
+    if date_from:
+        try:
+            consulta = consulta.filter(Task.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            limite = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            consulta = consulta.filter(Task.created_at < limite)
+        except ValueError:
+            pass
+    return consulta.order_by(Task.created_at.desc()).all()
+
+
+def _usuarios_filtrados():
+    area_id = request.args.get('area_id', type=int)
+    role = request.args.get('role', '')
+    status = request.args.get('status', '')
+    consulta = User.query
+    if status == 'inactive':
+        consulta = consulta.filter(User.is_active.is_(False))
+    elif status == 'active':
+        consulta = consulta.filter(User.is_active.is_(True))
+    if role:
+        consulta = consulta.filter(User.role == role)
+    if area_id:
+        consulta = consulta.filter(User.area_assignments.any(area_id=area_id))
+    return consulta.order_by(User.created_at.desc()).all()
+
+
+def _estadistica_usuario(usuario):
+    asignadas = Task.query.filter(Task.assigned_to == usuario.id).all()
+    completadas = len([tarea for tarea in asignadas if tarea.status == 'completada'])
+    return {
+        'assigned_tasks': len(asignadas),
+        'completed_tasks': completadas,
+        'uploaded_files': File.query.filter(File.uploaded_by == usuario.id).count(),
+        'assigned_areas': len(usuario.area_assignments),
+        'completion_rate': round((completadas / len(asignadas)) * 100, 1) if asignadas else 0,
+    }
+
+
+def _estadisticas_areas():
+    resumen = []
+    for area in Area.query.filter_by(is_active=True).all():
+        tareas = Task.query.filter(Task.area_id == area.id).all()
+        completadas = len([tarea for tarea in tareas if tarea.status == 'completada'])
+        archivos = File.query.join(Task).filter(Task.area_id == area.id).all()
+        resumen.append({
+            'area': area,
+            'total_tasks': len(tareas),
+            'completed_tasks': completadas,
+            'pending_tasks': len([tarea for tarea in tareas if tarea.status == 'pendiente']),
+            'in_progress_tasks': len([tarea for tarea in tareas if tarea.status == 'en_progreso']),
+            'overdue_tasks': len([tarea for tarea in tareas if tarea.is_overdue()]),
+            'total_files': len(archivos),
+            'total_size': sum(archivo.file_size or 0 for archivo in archivos),
+            'assigned_users': len(area.user_assignments),
+            'completion_rate': round((completadas / len(tareas)) * 100, 1) if tareas else 0,
+        })
+    return resumen
+
+
+def _archivos_filtrados():
+    area_id = request.args.get('area_id', type=int)
+    file_type = request.args.get('file_type', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    consulta = File.query.join(Task).join(Area)
+    if area_id:
+        consulta = consulta.filter(Task.area_id == area_id)
+    if file_type:
+        consulta = consulta.filter(File.file_type.like(f'%{file_type}%'))
+    if date_from:
+        try:
+            consulta = consulta.filter(File.uploaded_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            limite = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            consulta = consulta.filter(File.uploaded_at < limite)
+        except ValueError:
+            pass
+    return consulta.order_by(File.uploaded_at.desc()).all()

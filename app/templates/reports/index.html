@@ -22,7 +22,7 @@
                 <h5 class="card-title">Reporte de Tareas</h5>
                 <p class="card-text text-muted">
                     Análisis detallado de tareas por área, usuario, estado y fechas.
-                    Incluye filtros avanzados y exportación a CSV.
+                    Incluye filtros y descarga en Excel con el banner de la empresa.
                 </p>
                 <a href="{{ url_for('reports.tasks') }}" class="btn btn-primary">
                     <i class="fas fa-eye me-1"></i>Ver Reporte
@@ -93,16 +93,13 @@
                 </div>
                 <h5 class="card-title">Exportaciones</h5>
                 <p class="card-text text-muted">
-                    Descarga reportes en formato CSV para análisis externo
-                    o integración con otras herramientas.
+                    Descargue el reporte en Excel. Cada archivo lleva el banner y el logo de Rosemirovich Roses.
                 </p>
-                <div class="btn-group">
-                    <a href="{{ url_for('reports.export_tasks_csv') }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-file-csv me-1"></i>Tareas CSV
-                    </a>
-                    <a href="{{ url_for('reports.export_users_csv') }}" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-file-csv me-1"></i>Usuarios CSV
-                    </a>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    <a href="{{ url_for('reports.exportar_tareas') }}" class="btn btn-outline-primary btn-sm">Tareas</a>
+                    <a href="{{ url_for('reports.exportar_usuarios') }}" class="btn btn-outline-primary btn-sm">Usuarios</a>
+                    <a href="{{ url_for('reports.exportar_areas') }}" class="btn btn-outline-primary btn-sm">Áreas</a>
+                    <a href="{{ url_for('reports.exportar_archivos') }}" class="btn btn-outline-primary btn-sm">Archivos</a>
                 </div>
             </div>
         </div>
@@ -142,7 +139,7 @@
                         <h6>Características de los Reportes:</h6>
                         <ul class="list-unstyled">
                             <li><i class="fas fa-check text-success me-2"></i>Filtros avanzados por fecha, área y usuario</li>
-                            <li><i class="fas fa-check text-success me-2"></i>Exportación a formato CSV</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Descarga en Excel con banner de la empresa</li>
                             <li><i class="fas fa-check text-success me-2"></i>Métricas en tiempo real</li>
                             <li><i class="fas fa-check text-success me-2"></i>Análisis de productividad</li>
                         </ul>

@@ -11,7 +11,10 @@
                 <a href="{{ url_for('scheduled_task.edit', task_id=task.id) }}" class="btn btn-warning">
                     <i class="fas fa-edit me-1"></i>Editar
                 </a>
-                <button class="btn btn-danger" onclick="deleteScheduledTask({{ task.id }})">
+                <button type="button"
+                        class="btn btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modal-eliminar-programacion">
                     <i class="fas fa-trash me-1"></i>Eliminar
                 </button>
             </div>
@@ -37,9 +40,9 @@
                         <ul class="list-unstyled mb-0">
                             <li><strong>Área:</strong> {{ task.area.name }}</li>
                             <li><strong>Prioridad:</strong>
-                                <span class="badge {{ 'badge-danger' if task.priority == 'alta'
-                                                     else 'badge-info' if task.priority == 'baja'
-                                                     else 'badge-primary' }}">
+                                <span class="badge {{ 'text-bg-danger' if task.priority == 'alta'
+                                                     else 'text-bg-info' if task.priority == 'baja'
+                                                     else 'text-bg-primary' }}">
                                     {{ task.priority.title() }}
                                 </span>
                             </li>
@@ -109,19 +112,26 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-function deleteScheduledTask(taskId) {
-    if (confirm('¿Estás seguro de que quieres eliminar esta tarea programada?')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("scheduled_task.delete", task_id=0) }}'.replace('0', taskId);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-</script>
+<div class="modal fade" id="modal-eliminar-programacion" tabindex="-1" aria-labelledby="titulo-modal-eliminar-programacion" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('scheduled_task.delete', task_id=task.id) }}">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="titulo-modal-eliminar-programacion">Eliminar programación</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">¿Elimina «{{ task.title }}»?</p>
+                    <p class="text-muted mb-0">Se borran la programación y las tareas que ya generó. No vuelve a crearse.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Eliminar programación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 

@@ -12,7 +12,7 @@
                 <a href="{{ url_for('task.edit', task_id=task.id) }}" class="btn btn-warning">
                     <i class="fas fa-edit me-1"></i>Editar
                 </a>
-                <button class="btn btn-danger" onclick="deleteTask({{ task.id }})">
+                <button class="btn btn-danger" onclick="deleteTask({{ task.id }}, {{ 'true' if task.scheduled_task_id else 'false' }})">
                     <i class="fas fa-trash me-1"></i>Eliminar
                 </button>
             </div>
@@ -238,8 +238,11 @@
 
 {% block extra_js %}
 <script>
-function deleteTask(taskId) {
-    if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+function deleteTask(taskId, esPeriodica) {
+    const mensaje = esPeriodica
+        ? 'Esta tarea es periódica. Se eliminarán las copias de las demás personas de esta misma generación y no volverán a crearse hasta el siguiente periodo. ¿Confirma?'
+        : '¿Confirma que desea eliminar esta tarea?';
+    if (confirm(mensaje)) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '{{ url_for("task.delete", task_id=0) }}'.replace('0', taskId);

@@ -54,8 +54,8 @@ class Area(db.Model):
     
     def get_today_task_count(self):
         """Obtener cantidad de tareas que vencen hoy"""
-        from datetime import datetime
-        today = datetime.utcnow().date()
+        from app.dominio.reloj import ahora_ecuador
+        today = ahora_ecuador().date()
         return len([task for task in self.tasks 
                    if task.due_date and task.due_date.date() == today and task.status != 'completada'])
     

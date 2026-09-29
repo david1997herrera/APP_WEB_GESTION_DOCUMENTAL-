@@ -1,4 +1,5 @@
 from app.models.user import User
+from app.models.restablecimiento_contrasena import RestablecimientoContrasena
 from app.models.area import Area, AreaUser
 from app.models.task import Task
 from app.models.file import File

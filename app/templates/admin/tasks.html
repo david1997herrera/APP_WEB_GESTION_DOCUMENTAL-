@@ -3,12 +3,51 @@
 {% block title %}Gestión de Tareas - Gestión Documental{% endblock %}
 
 {% block content %}
+{% macro filtros_tabla(prefijo, filtros) %}
+<div class="row g-3 align-items-end mb-3 filtros-tareas">
+    <div class="col-12 col-lg-4">
+        <label class="form-label" for="filtro-nombre-{{ prefijo }}">Nombre de la tarea</label>
+        <select class="form-select" id="filtro-nombre-{{ prefijo }}">
+            <option value="">Todas</option>
+            {% for nombre in filtros.nombres %}
+            <option value="{{ nombre }}">{{ nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <label class="form-label" for="filtro-duracion-{{ prefijo }}">Duración</label>
+        <select class="form-select" id="filtro-duracion-{{ prefijo }}">
+            <option value="">Cualquiera</option>
+            {% for opcion in filtros.duraciones %}
+            <option value="{{ opcion.valor }}">{{ opcion.etiqueta }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <label class="form-label" for="filtro-usuario-{{ prefijo }}">Usuario asignado</label>
+        <select class="form-select" id="filtro-usuario-{{ prefijo }}">
+            <option value="">Cualquiera</option>
+            {% for opcion in filtros.usuarios %}
+            <option value="{{ opcion.valor }}">{{ opcion.etiqueta }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-lg-2">
+        <span class="form-label d-none d-lg-block invisible" aria-hidden="true">Limpiar</span>
+        <button type="button" class="btn btn-outline-secondary w-100" id="limpiar-filtros-{{ prefijo }}">Limpiar</button>
+    </div>
+</div>
+<p class="small text-muted mb-2" id="conteo-{{ prefijo }}"></p>
+{% endmacro %}
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">
-                <i class="fas fa-tasks me-2"></i>Gestión de Tareas
-            </h1>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+            <div>
+                <h1 class="h3 mb-1">
+                    <i class="fas fa-tasks me-2"></i>Gestión de Tareas
+                </h1>
+                <p class="text-muted mb-0">Filtre cada lista por nombre, duración o persona. Marque varias filas y bórrelas juntas.</p>
+            </div>
             <a href="{{ url_for('task.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-1"></i>Nueva Tarea
             </a>
@@ -16,14 +55,135 @@
     </div>
 </div>
 
-<div class="row">
+<div class="row mb-3">
+    <div class="col-12 d-flex flex-wrap gap-2" id="filtro-tipo-tarea">
+        <button type="button" class="btn btn-dark btn-sm" data-filtro="todas">Todas</button>
+        <button type="button" class="btn btn-outline-dark btn-sm" data-filtro="periodicas">Periódicas ({{ programadas|length }})</button>
+        <button type="button" class="btn btn-outline-dark btn-sm" data-filtro="normales">Normales ({{ tasks|length }})</button>
+    </div>
+</div>
+
+<div class="row mb-4" id="lista-tareas-periodicas">
     <div class="col-12">
-        <div class="card">
+        <div class="card card-listado-tareas border-warning">
+            <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Tareas periódicas</h2>
+                <span class="badge text-bg-warning">Se repiten</span>
+            </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
+                {% if programadas %}
+                {{ filtros_tabla('periodicas', filtros_periodicas) }}
+                <div class="barra-seleccion" id="barra-seleccion-periodicas" hidden>
+                    <span id="conteo-seleccion-periodicas"></span>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="quitar-seleccion-periodicas">Quitar marcas</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="borrar-seleccion-periodicas">Borrar marcadas</button>
+                    </div>
+                </div>
+                <div class="tabla-con-scroll" id="scroll-periodicas">
+                    <table class="table table-hover align-middle mb-0">
                         <thead>
                             <tr>
+                                <th class="columna-marca">
+                                    <input class="form-check-input" type="checkbox" id="marcar-todas-periodicas" aria-label="Marcar las programaciones visibles">
+                                </th>
+                                <th>Tipo</th>
+                                <th>Título</th>
+                                <th>Asignadas a</th>
+                                <th>Ciclo</th>
+                                <th>Copias</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpo-periodicas">
+                            {% for item in programadas %}
+                            <tr data-id="{{ item.id }}" data-nombre="{{ item.titulo }}" data-duracion="{{ item.clave_duracion }}" data-usuarios="{{ item.usuarios_filtro }}">
+                                <td class="columna-marca">
+                                    <input class="form-check-input marca-tarea" type="checkbox" value="{{ item.id }}" aria-label="Marcar {{ item.titulo }}">
+                                </td>
+                                <td><span class="badge text-bg-warning">Periódica</span></td>
+                                <td>
+                                    <div class="fw-semibold">{{ item.titulo }}</div>
+                                    <small class="text-muted">{{ item.area }}</small>
+                                </td>
+                                <td>
+                                    {% for nombre in item.asignados %}
+                                        <span class="badge text-bg-light border me-1">{{ nombre }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Sin asignar</span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <div>{{ item.frecuencia }}</div>
+                                    <small class="text-muted">Cada {{ item.intervalo }}</small>
+                                    {% if item.proxima %}
+                                        <div><small class="text-muted">Próxima: {{ item.proxima.strftime('%d/%m/%Y') }}</small></div>
+                                    {% endif %}
+                                    {% if not item.activa %}
+                                        <span class="badge text-bg-secondary">Inactiva</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ item.cantidad }} en total</div>
+                                    <small class="text-muted">
+                                        Hoy {{ hoy.strftime('%d/%m/%Y') }}: {{ item.copias_hoy }}
+                                    </small>
+                                    {% if item.desde and item.hasta %}
+                                        <div><small class="text-muted">{{ item.desde.strftime('%d/%m/%Y') }} – {{ item.hasta.strftime('%d/%m/%Y') }}</small></div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button"
+                                            class="btn btn-outline-danger btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modal-borrar-programacion"
+                                            data-programacion-id="{{ item.id }}"
+                                            data-titulo="{{ item.titulo }}"
+                                            data-cantidad="{{ item.cantidad }}"
+                                            data-copias-hoy="{{ item.copias_hoy }}"
+                                            data-hoy="{{ hoy.strftime('%d/%m/%Y') }}">
+                                        <i class="fas fa-trash me-1"></i>Borrar
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-muted mb-0 mt-3" id="vacio-periodicas" hidden>Ninguna tarea periódica coincide con esos filtros.</p>
+                {% else %}
+                <p class="text-muted mb-0">No hay tareas periódicas.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" id="lista-tareas-normales">
+    <div class="col-12">
+        <div class="card card-listado-tareas">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Tareas normales</h2>
+                <span class="badge text-bg-secondary">Una sola vez</span>
+            </div>
+            <div class="card-body">
+                {% if tasks %}
+                {{ filtros_tabla('normales', filtros_normales) }}
+                <div class="barra-seleccion" id="barra-seleccion-normales" hidden>
+                    <span id="conteo-seleccion-normales"></span>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="quitar-seleccion-normales">Quitar marcas</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="borrar-seleccion-normales">Borrar marcadas</button>
+                    </div>
+                </div>
+                <div class="tabla-con-scroll" id="scroll-normales">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="columna-marca">
+                                    <input class="form-check-input" type="checkbox" id="marcar-todas-normales" aria-label="Marcar las tareas visibles">
+                                </th>
+                                <th>Tipo</th>
                                 <th>Título</th>
                                 <th>Área</th>
                                 <th>Asignado a</th>
@@ -34,16 +194,17 @@
                                 <th>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="cuerpo-normales">
                             {% for task in tasks %}
-                            <tr>
+                            <tr data-id="{{ task.id }}" data-nombre="{{ task.title }}" data-duracion="{{ task.clave_duracion }}" data-usuarios="{{ task.usuario_filtro }}">
+                                <td class="columna-marca">
+                                    <input class="form-check-input marca-tarea" type="checkbox" value="{{ task.id }}" aria-label="Marcar {{ task.title }}">
+                                </td>
+                                <td><span class="badge text-bg-secondary">Normal</span></td>
                                 <td>
                                     <a href="{{ url_for('task.view', task_id=task.id) }}" class="text-decoration-none">
                                         {{ task.title }}
                                     </a>
-                                    {% if task.scheduled_task_id %}
-                                        <span class="badge bg-info ms-1">Periódica</span>
-                                    {% endif %}
                                 </td>
                                 <td>
                                     <span class="badge bg-info">{{ task.area.name }}</span>
@@ -63,7 +224,7 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="progress me-2" style="width: 100px; height: 20px;">
-                                            <div class="progress-bar" role="progressbar" 
+                                            <div class="progress-bar" role="progressbar"
                                                  style="width: {{ task.get_progress_percentage() }}%">
                                                 {{ task.get_progress_percentage() }}%
                                             </div>
@@ -82,7 +243,7 @@
                                     {% if task.due_date %}
                                         {{ task.due_date.strftime('%d/%m/%Y') }}
                                         {% if task.is_overdue() %}
-                                            <i class="fas fa-exclamation-triangle text-danger ms-1" 
+                                            <i class="fas fa-exclamation-triangle text-danger ms-1"
                                                title="Tarea vencida"></i>
                                         {% endif %}
                                     {% else %}
@@ -91,15 +252,16 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a href="{{ url_for('task.view', task_id=task.id) }}" 
+                                        <a href="{{ url_for('task.view', task_id=task.id) }}"
                                            class="btn btn-outline-primary btn-sm">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                        <a href="{{ url_for('task.edit', task_id=task.id) }}" 
+                                        <a href="{{ url_for('task.edit', task_id=task.id) }}"
                                            class="btn btn-outline-warning btn-sm">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button class="btn btn-outline-danger btn-sm" 
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm"
                                                 onclick="deleteTask({{ task.id }})">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -110,7 +272,37 @@
                         </tbody>
                     </table>
                 </div>
+                <p class="text-muted mb-0 mt-3" id="vacio-normales" hidden>Ninguna tarea normal coincide con esos filtros.</p>
+                {% else %}
+                <p class="text-muted mb-0">No hay tareas normales.</p>
+                {% endif %}
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-borrar-programacion" tabindex="-1" aria-labelledby="titulo-modal-borrar-programacion" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="form-borrar-programacion" method="POST" action="">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="titulo-modal-borrar-programacion">Borrar tarea periódica</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2" id="texto-modal-programacion"></p>
+                    <p class="text-muted mb-0" id="ayuda-modal-programacion"></p>
+                </div>
+                <div class="modal-footer flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-outline-danger" name="alcance" value="hoy" id="boton-borrar-hoy">
+                        Solo las de hoy
+                    </button>
+                    <button type="submit" class="btn btn-danger" name="alcance" value="toda" id="boton-borrar-toda">
+                        Borrar toda la programación
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -119,13 +311,311 @@
 {% block extra_js %}
 <script>
 function deleteTask(taskId) {
-    if (confirm('¿Estás seguro de que quieres eliminar esta tarea?')) {
+    if (confirm('¿Confirma que desea eliminar esta tarea normal?')) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '{{ url_for("task.delete", task_id=0) }}'.replace('0', taskId);
         document.body.appendChild(form);
         form.submit();
     }
+}
+
+function enlazarFiltrosTabla(prefijo) {
+    const cuerpo = document.getElementById('cuerpo-' + prefijo);
+    if (!cuerpo) {
+        return;
+    }
+    const filas = Array.from(cuerpo.querySelectorAll('tr[data-nombre]'));
+    const nombre = document.getElementById('filtro-nombre-' + prefijo);
+    const duracion = document.getElementById('filtro-duracion-' + prefijo);
+    const usuario = document.getElementById('filtro-usuario-' + prefijo);
+    const limpiar = document.getElementById('limpiar-filtros-' + prefijo);
+    const conteo = document.getElementById('conteo-' + prefijo);
+    const vacio = document.getElementById('vacio-' + prefijo);
+
+    function aplicar() {
+        const nombreValor = nombre.value;
+        const duracionValor = duracion.value;
+        const usuarioValor = usuario.value;
+        let visibles = 0;
+        filas.forEach(function (fila) {
+            const coincideNombre = !nombreValor || fila.getAttribute('data-nombre') === nombreValor;
+            const coincideDuracion = !duracionValor || fila.getAttribute('data-duracion') === duracionValor;
+            const usuarios = (fila.getAttribute('data-usuarios') || '').split('|').filter(function (item) {
+                return item;
+            });
+            let coincideUsuario = true;
+            if (usuarioValor === '__sin_asignar__') {
+                coincideUsuario = usuarios.length === 0;
+            } else if (usuarioValor) {
+                coincideUsuario = usuarios.indexOf(usuarioValor) !== -1;
+            }
+            const visible = coincideNombre && coincideDuracion && coincideUsuario;
+            fila.hidden = !visible;
+            if (!visible) {
+                const casilla = fila.querySelector('.marca-tarea');
+                if (casilla) {
+                    casilla.checked = false;
+                }
+            }
+            if (visible) {
+                visibles += 1;
+            }
+        });
+        conteo.textContent = 'Mostrando ' + visibles + ' de ' + filas.length;
+        if (vacio) {
+            vacio.hidden = visibles !== 0;
+        }
+        cuerpo.dispatchEvent(new CustomEvent('filtro-aplicado'));
+    }
+
+    [nombre, duracion, usuario].forEach(function (control) {
+        control.addEventListener('change', aplicar);
+    });
+    limpiar.addEventListener('click', function () {
+        nombre.value = '';
+        duracion.value = '';
+        usuario.value = '';
+        aplicar();
+    });
+    aplicar();
+}
+
+enlazarFiltrosTabla('periodicas');
+enlazarFiltrosTabla('normales');
+
+function enlazarSeleccion(prefijo, opciones) {
+    const cuerpo = document.getElementById('cuerpo-' + prefijo);
+    const barra = document.getElementById('barra-seleccion-' + prefijo);
+    const marcarTodas = document.getElementById('marcar-todas-' + prefijo);
+    if (!cuerpo || !barra || !marcarTodas) {
+        return;
+    }
+    const conteo = document.getElementById('conteo-seleccion-' + prefijo);
+    const scroll = document.getElementById('scroll-' + prefijo);
+    let arrastrando = false;
+    let huboArrastre = false;
+    let ancla = null;
+    let marcasPrevias = null;
+
+    function casillaDe(fila) {
+        return fila.querySelector('.marca-tarea');
+    }
+
+    function filasVisibles() {
+        return Array.from(cuerpo.querySelectorAll('tr[data-id]')).filter(function (fila) {
+            return !fila.hidden;
+        });
+    }
+
+    function marcarRango(desde, hasta, conservarPrevias) {
+        const visibles = filasVisibles();
+        const indiceDesde = visibles.indexOf(desde);
+        const indiceHasta = visibles.indexOf(hasta);
+        if (indiceDesde < 0 || indiceHasta < 0) {
+            return;
+        }
+        const inicio = Math.min(indiceDesde, indiceHasta);
+        const fin = Math.max(indiceDesde, indiceHasta);
+        visibles.forEach(function (fila, indice) {
+            const enRango = indice >= inicio && indice <= fin;
+            if (!conservarPrevias) {
+                if (enRango) {
+                    casillaDe(fila).checked = true;
+                }
+                return;
+            }
+            const yaEstaba = marcasPrevias && marcasPrevias.indexOf(fila) !== -1;
+            casillaDe(fila).checked = enRango || yaEstaba;
+        });
+    }
+
+    function actualizar() {
+        const filas = Array.from(cuerpo.querySelectorAll('tr[data-id]'));
+        let marcadas = 0;
+        filas.forEach(function (fila) {
+            const marcada = casillaDe(fila).checked;
+            fila.classList.toggle('tarea-marcada', marcada);
+            if (marcada) {
+                marcadas += 1;
+            }
+        });
+        barra.hidden = marcadas === 0;
+        conteo.textContent = marcadas === 1 ? '1 tarea marcada' : marcadas + ' tareas marcadas';
+        const visibles = filasVisibles();
+        const marcadasVisibles = visibles.filter(function (fila) {
+            return casillaDe(fila).checked;
+        }).length;
+        marcarTodas.checked = visibles.length > 0 && marcadasVisibles === visibles.length;
+        marcarTodas.indeterminate = marcadasVisibles > 0 && marcadasVisibles < visibles.length;
+    }
+
+    cuerpo.addEventListener('click', function (evento) {
+        if (huboArrastre) {
+            huboArrastre = false;
+            evento.preventDefault();
+            evento.stopPropagation();
+            return;
+        }
+        const fila = evento.target.closest('tr[data-id]');
+        if (!fila || fila.hidden || evento.target.closest('a, button, input, label')) {
+            return;
+        }
+        if (evento.shiftKey && ancla) {
+            marcarRango(ancla, fila, false);
+        } else {
+            casillaDe(fila).checked = !casillaDe(fila).checked;
+            ancla = fila;
+        }
+        actualizar();
+    });
+
+    cuerpo.addEventListener('change', function (evento) {
+        if (!evento.target.classList.contains('marca-tarea')) {
+            return;
+        }
+        ancla = evento.target.closest('tr[data-id]');
+        actualizar();
+    });
+
+    cuerpo.addEventListener('pointerdown', function (evento) {
+        if (evento.button !== 0 || evento.pointerType !== 'mouse') {
+            return;
+        }
+        const fila = evento.target.closest('tr[data-id]');
+        if (!fila || fila.hidden || evento.target.closest('a, button, input, label')) {
+            return;
+        }
+        arrastrando = true;
+        huboArrastre = false;
+        ancla = fila;
+        marcasPrevias = filasVisibles().filter(function (item) {
+            return casillaDe(item).checked;
+        });
+        if (scroll) {
+            scroll.classList.add('seleccionando');
+        }
+    });
+
+    document.addEventListener('pointermove', function (evento) {
+        if (!arrastrando || !ancla) {
+            return;
+        }
+        const bajoElPuntero = document.elementFromPoint(evento.clientX, evento.clientY);
+        const fila = bajoElPuntero && bajoElPuntero.closest('#' + cuerpo.id + ' tr[data-id]');
+        if (!fila || fila === ancla || fila.hidden) {
+            return;
+        }
+        huboArrastre = true;
+        marcarRango(ancla, fila, true);
+        actualizar();
+    });
+
+    document.addEventListener('pointerup', function () {
+        arrastrando = false;
+        marcasPrevias = null;
+        if (scroll) {
+            scroll.classList.remove('seleccionando');
+        }
+        if (huboArrastre) {
+            window.setTimeout(function () {
+                huboArrastre = false;
+            }, 0);
+        }
+    });
+
+    marcarTodas.addEventListener('change', function () {
+        filasVisibles().forEach(function (fila) {
+            casillaDe(fila).checked = marcarTodas.checked;
+        });
+        actualizar();
+    });
+
+    document.getElementById('quitar-seleccion-' + prefijo).addEventListener('click', function () {
+        cuerpo.querySelectorAll('.marca-tarea').forEach(function (casilla) {
+            casilla.checked = false;
+        });
+        actualizar();
+    });
+
+    document.getElementById('borrar-seleccion-' + prefijo).addEventListener('click', function () {
+        const identificadores = Array.from(cuerpo.querySelectorAll('.marca-tarea:checked')).map(function (casilla) {
+            return casilla.value;
+        });
+        if (!identificadores.length || !confirm(opciones.mensaje(identificadores.length))) {
+            return;
+        }
+        const formulario = document.createElement('form');
+        formulario.method = 'POST';
+        formulario.action = opciones.accion;
+        identificadores.forEach(function (identificador) {
+            const campo = document.createElement('input');
+            campo.type = 'hidden';
+            campo.name = opciones.campo;
+            campo.value = identificador;
+            formulario.appendChild(campo);
+        });
+        document.body.appendChild(formulario);
+        formulario.submit();
+    });
+
+    cuerpo.addEventListener('filtro-aplicado', actualizar);
+    actualizar();
+}
+
+enlazarSeleccion('normales', {
+    accion: '{{ url_for("admin.eliminar_tareas_normales_varias") }}',
+    campo: 'tarea_id',
+    mensaje: function (cantidad) {
+        if (cantidad === 1) {
+            return '¿Confirma que desea eliminar 1 tarea normal? Se borra por completo, con sus archivos.';
+        }
+        return '¿Confirma que desea eliminar ' + cantidad + ' tareas normales? Se borran por completo, con sus archivos.';
+    }
+});
+
+enlazarSeleccion('periodicas', {
+    accion: '{{ url_for("admin.eliminar_programaciones_varias") }}',
+    campo: 'programacion_id',
+    mensaje: function (cantidad) {
+        if (cantidad === 1) {
+            return '¿Confirma que desea eliminar 1 programación completa? Se borra el historial y no vuelve a crearse. Para borrar solo las de hoy, use el botón Borrar de esa fila.';
+        }
+        return '¿Confirma que desea eliminar ' + cantidad + ' programaciones completas? Se borra el historial de cada una y no vuelven a crearse. Para borrar solo las de hoy, use el botón Borrar de cada fila.';
+    }
+});
+
+document.querySelectorAll('#filtro-tipo-tarea button').forEach(function (boton) {
+    boton.addEventListener('click', function () {
+        const filtro = boton.getAttribute('data-filtro');
+        document.getElementById('lista-tareas-periodicas').hidden = filtro === 'normales';
+        document.getElementById('lista-tareas-normales').hidden = filtro === 'periodicas';
+        document.querySelectorAll('#filtro-tipo-tarea button').forEach(function (otro) {
+            otro.classList.toggle('btn-dark', otro === boton);
+            otro.classList.toggle('btn-outline-dark', otro !== boton);
+        });
+    });
+});
+
+const modalBorrar = document.getElementById('modal-borrar-programacion');
+if (modalBorrar) {
+    modalBorrar.addEventListener('show.bs.modal', function (evento) {
+        const origen = evento.relatedTarget;
+        const programacionId = origen.getAttribute('data-programacion-id');
+        const titulo = origen.getAttribute('data-titulo');
+        const cantidad = origen.getAttribute('data-cantidad');
+        const copiasHoy = Number(origen.getAttribute('data-copias-hoy') || '0');
+        const hoy = origen.getAttribute('data-hoy');
+        const form = document.getElementById('form-borrar-programacion');
+        form.action = '{{ url_for("admin.eliminar_programacion_desde_listado", programacion_id=0) }}'.replace('/0/', '/' + programacionId + '/');
+        document.getElementById('texto-modal-programacion').textContent =
+            '«' + titulo + '» tiene ' + cantidad + ' copias generadas.';
+        document.getElementById('ayuda-modal-programacion').textContent = copiasHoy > 0
+            ? 'Solo las de hoy (' + hoy + ') quita ' + copiasHoy + ' copia(s) y la programación sigue. Borrar toda la programación elimina el historial y no vuelve a crearse.'
+            : 'Hoy (' + hoy + ') no hay copias. Puede borrar toda la programación: se elimina el historial y no vuelve a crearse.';
+        const botonHoy = document.getElementById('boton-borrar-hoy');
+        botonHoy.disabled = copiasHoy === 0;
+    });
 }
 </script>
 {% endblock %}

@@ -1,31 +1,70 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}Iniciar Sesión - Gestión Documental{% endblock %}
+{% block title %}Iniciar sesión · Rosemirovich Roses{% endblock %}
+
+{% block alertas %}{% endblock %}
 
 {% block content %}
-    <div class="container-fluid vh-100">
-        <div class="row h-100">
-            <!-- Panel izquierdo -->
-            <div class="col-lg-6 d-none d-lg-flex bg-primary text-white align-items-center justify-content-center">
-                <div class="text-center">
-                    <h1 class="display-4 mb-4">
-                        <i class="fas fa-file-alt"></i>
-                        Gestión Documental
-                    </h1>
-                    <p class="lead">Sistema de gestión documental empresarial</p>
+<div class="acceso">
+    <div class="row g-0">
+        <div class="col-lg-6 acceso-carrusel">
+            <div id="carrusel-marca" class="carousel slide h-100" data-bs-ride="carousel" data-bs-interval="6500" data-bs-pause="hover" data-bs-touch="true" aria-roledescription="carrusel" aria-label="Rosemirovich Roses">
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#carrusel-marca" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Diapositiva 1"></button>
+                    <button type="button" data-bs-target="#carrusel-marca" data-bs-slide-to="1" aria-label="Diapositiva 2"></button>
+                    <button type="button" data-bs-target="#carrusel-marca" data-bs-slide-to="2" aria-label="Diapositiva 3"></button>
                 </div>
-            </div>
-
-            <!-- Panel derecho -->
-            <div class="col-lg-6 d-flex align-items-center justify-content-center">
-                <div class="w-100" style="max-width: 400px;">
-                    <div class="text-center mb-4">
-                        <h2 class="text-primary">
-                            <i class="fas fa-sign-in-alt"></i>
-                            Iniciar Sesión
-                        </h2>
-                        <p class="text-muted">Accede a tu cuenta para continuar</p>
+                <div class="carousel-inner h-100">
+                    <div class="carousel-item active h-100">
+                        <div class="acceso-diapositiva">
+                            <div class="text-center">
+                                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Rosemirovich Roses" class="acceso-logo mb-4">
+                                <p class="acceso-kicker mb-2">Gestión documental</p>
+                                <h1 class="h2 mb-3">Bienvenido</h1>
+                                <p class="mb-0 opacity-75">El espacio de trabajo de Rosemirovich Roses.</p>
+                            </div>
+                        </div>
                     </div>
+                    <div class="carousel-item h-100">
+                        <div class="acceso-diapositiva">
+                            <div class="text-center" style="max-width: 28rem;">
+                                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="" class="acceso-logo mb-4">
+                                <p class="acceso-kicker mb-2">La empresa</p>
+                                <h2 class="h2 mb-3">Rosas que recorren el mundo</h2>
+                                <p class="mb-0 opacity-75">Del cultivo al destino, el trabajo de cada área queda consolidado.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item h-100">
+                        <div class="acceso-diapositiva">
+                            <div class="text-center" style="max-width: 28rem;">
+                                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="" class="acceso-logo mb-4">
+                                <p class="acceso-kicker mb-2">Documentos</p>
+                                <h2 class="h2 mb-3">Lo de la operación, a la mano</h2>
+                                <p class="mb-0 opacity-75">Tareas, archivos y seguimientos, cuando usted los necesite.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#carrusel-marca" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Anterior</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#carrusel-marca" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Siguiente</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-lg-6 d-flex align-items-center justify-content-center py-5 px-3">
+            <div class="acceso-formulario">
+                <div class="acceso-tarjeta">
+                    <div class="text-center d-lg-none mb-4">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Rosemirovich Roses" class="acceso-logo">
+                    </div>
+                    <h2 class="h3 mb-1" style="color: var(--marca-azul);">Iniciar sesión</h2>
+                    <p class="text-muted mb-4">Use su usuario de Rosemirovich Roses.</p>
 
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
@@ -40,72 +79,56 @@
 
                     <form method="POST" action="{{ url_for('auth.login') }}">
                         <div class="mb-3">
-                            <label for="username" class="form-label">
-                                <i class="fas fa-user"></i> Usuario
-                            </label>
-                            <input type="text" 
-                                   class="form-control form-control-lg" 
-                                   id="username" 
-                                   name="username" 
-                                   placeholder="Ingresa tu usuario"
+                            <label for="username" class="form-label">Usuario</label>
+                            <input type="text"
+                                   class="form-control form-control-lg"
+                                   id="username"
+                                   name="username"
+                                   placeholder="Su usuario"
                                    required
                                    autocomplete="username">
                         </div>
-
                         <div class="mb-3">
-                            <label for="password" class="form-label">
-                                <i class="fas fa-lock"></i> Contraseña
-                            </label>
-                            <input type="password" 
-                                   class="form-control form-control-lg" 
-                                   id="password" 
-                                   name="password" 
-                                   placeholder="Ingresa tu contraseña"
+                            <label for="password" class="form-label">Contraseña</label>
+                            <input type="password"
+                                   class="form-control form-control-lg"
+                                   id="password"
+                                   name="password"
+                                   placeholder="Su contraseña"
                                    required
                                    autocomplete="current-password">
                         </div>
-
+                        <div class="text-end mb-3">
+                            <a href="{{ url_for('auth.olvide_contrasena') }}">Olvidé mi contraseña</a>
+                        </div>
                         <div class="d-grid">
-                            <button id="loginSubmit" type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-sign-in-alt"></i>
-                                Iniciar Sesión
-                            </button>
+                            <button id="loginSubmit" type="submit" class="btn btn-primary btn-lg">Iniciar sesión</button>
                         </div>
                     </form>
-
-                    
                 </div>
             </div>
         </div>
     </div>
-
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Forzar envío y registrar eventos para depuración
-(function() {
-  const form = document.querySelector('form[action="{{ url_for('auth.login') }}"]');
-  const submitBtn = document.getElementById('loginSubmit');
-  if (!form || !submitBtn) return;
-
-  // Log de clic
-  submitBtn.addEventListener('click', function(e) {
-    console.log('[login] click submit');
-    // Si el formulario es válido, forzar submit por si algún handler externo lo bloquea
-    if (form.checkValidity()) {
-      // No llamar preventDefault aquí: dejamos que el navegador envíe normalmente
-      setTimeout(function() {
-        // Si por alguna razón no se envió, forzamos
-        try { form.submit(); } catch (err) { console.warn('[login] submit() error', err); }
-      }, 0);
+(function () {
+    var nodo = document.getElementById('carrusel-marca');
+    if (!nodo || !window.bootstrap) return;
+    var carrusel = bootstrap.Carousel.getOrCreateInstance(nodo);
+    nodo.setAttribute('tabindex', '0');
+    nodo.addEventListener('keydown', function (evento) {
+        if (evento.key === 'ArrowLeft') {
+            carrusel.prev();
+        } else if (evento.key === 'ArrowRight') {
+            carrusel.next();
+        }
+    });
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        carrusel.pause();
     }
-  });
-
-  // Log de submit
-  form.addEventListener('submit', function() {
-    console.log('[login] submit event fired');
-  });
 })();
 </script>
 {% endblock %}

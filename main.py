@@ -8,6 +8,7 @@ from flask_login import LoginManager
 from flask_mail import Mail
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
+from app.dominio.reloj import ZONA_ECUADOR
 
 # Cargar variables de entorno
 load_dotenv()
@@ -48,6 +49,7 @@ mail.init_app(app)
 
 # Importar modelos
 from app.models.user import User
+from app.models.restablecimiento_contrasena import RestablecimientoContrasena
 from app.models.area import Area, AreaUser
 from app.models.task import Task
 from app.models.file import File
@@ -106,7 +108,7 @@ def _build_area_admin_identity(area_name: str):
 
 def start_scheduler():
     """Inicia el scheduler en segundo plano para procesar tareas programadas."""
-    scheduler = BackgroundScheduler(timezone='UTC')
+    scheduler = BackgroundScheduler(timezone=ZONA_ECUADOR)
 
     def _job():
         with app.app_context():
@@ -193,13 +195,25 @@ def init_db():
             db.session.rollback()
             raise
 
-if __name__ == '__main__':
-    # Ejecutar init solo si variable RUN_DB_INIT=true
+def arrancar_servicios():
+    """Prepara el esquema heredado y deja un solo planificador en este proceso."""
+    with app.app_context():
+        from app.infraestructura.esquema_tareas import asegurar_esquema_tareas
+        from app.infraestructura.esquema_cuentas import asegurar_esquema_cuentas
+        asegurar_esquema_cuentas()
+        retiradas = asegurar_esquema_tareas()
+        if retiradas:
+            print(f"Se retiraron {retiradas} tareas duplicadas de la misma generacion.")
+    if os.getenv('RUN_SCHEDULER', 'true').lower() == 'true':
+        start_scheduler()
+
+
+if os.environ.get('GESTION_OMITIR_ARRANQUE') != 'true':
     if os.getenv('RUN_DB_INIT', 'false').lower() == 'true':
         init_db()
-    # Iniciar scheduler de tareas programadas si está habilitado
-    if os.getenv('RUN_SCHEDULER', 'true').lower() == 'true':
-        # Evitar doble scheduler con el reloader de Flask
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
-            start_scheduler()
-    app.run(host='0.0.0.0', port=3110, debug=True)
+    arrancar_servicios()
+
+
+if __name__ == '__main__':
+    from waitress import serve
+    serve(app, host='0.0.0.0', port=int(os.getenv('PORT', '3110')))

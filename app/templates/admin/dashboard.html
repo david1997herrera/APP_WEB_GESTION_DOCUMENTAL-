@@ -130,117 +130,81 @@
 </div>
 
 <!-- Áreas -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+    <h2 class="h5 mb-0">Áreas</h2>
+    <a href="{{ url_for('area.create') }}" class="btn btn-primary btn-sm">Nueva área</a>
+</div>
 <div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-building me-2"></i>Áreas
-                </h5>
-                <a href="{{ url_for('area.create') }}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus me-1"></i>Nueva Área
-                </a>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for area_info in areas_data %}
-                    <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h6 class="card-title">{{ area_info.area.name }}</h6>
-                                <p class="card-text text-muted small">{{ area_info.area.description or 'Sin descripción' }}</p>
-                                
-                                <!-- Métricas principales -->
-                                <div class="row text-center mb-3">
-                                    <div class="col-6">
-                                        <small class="text-muted">Usuarios</small>
-                                        <div class="fw-bold text-primary">{{ area_info.user_count }}</div>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted">Total Tareas</small>
-                                        <div class="fw-bold text-info">{{ area_info.task_count }}</div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Estados de tareas -->
-                                <div class="row text-center mb-2">
-                                    <div class="col-3">
-                                        <small class="text-muted">Pendientes</small>
-                                        <div class="fw-bold text-warning">{{ area_info.pending_tasks }}</div>
-                                    </div>
-                                    <div class="col-3">
-                                        <small class="text-muted">En Progreso</small>
-                                        <div class="fw-bold text-info">{{ area_info.in_progress_tasks }}</div>
-                                    </div>
-                                    <div class="col-3">
-                                        <small class="text-muted">Completadas</small>
-                                        <div class="fw-bold text-success">{{ area_info.completed_tasks }}</div>
-                                    </div>
-                                    <div class="col-3">
-                                        <small class="text-muted">Vencidas</small>
-                                        <div class="fw-bold text-danger">{{ area_info.overdue_tasks }}</div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Alertas importantes -->
-                                {% if area_info.high_priority_tasks > 0 or area_info.today_tasks > 0 %}
-                                <div class="row text-center mb-2">
-                                    {% if area_info.high_priority_tasks > 0 %}
-                                    <div class="col-6">
-                                        <small class="text-muted">Alta Prioridad</small>
-                                        <div class="fw-bold text-danger">
-                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ area_info.high_priority_tasks }}
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                    {% if area_info.today_tasks > 0 %}
-                                    <div class="col-6">
-                                        <small class="text-muted">Vencen Hoy</small>
-                                        <div class="fw-bold text-warning">
-                                            <i class="fas fa-clock me-1"></i>{{ area_info.today_tasks }}
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
-                            </div>
-                            <div class="card-footer">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <a href="{{ url_for('area.view', area_id=area_info.area.id) }}" 
-                                       class="btn btn-outline-primary btn-sm">
-                                        <i class="fas fa-eye me-1"></i>Ver
-                                    </a>
-                                    <div class="text-end">
-                                        {% if area_info.overdue_tasks > 0 %}
-                                            <span class="badge bg-danger me-1">
-                                                <i class="fas fa-exclamation-triangle me-1"></i>{{ area_info.overdue_tasks }} vencidas
-                                            </span>
-                                        {% endif %}
-                                        {% if area_info.in_progress_tasks > 0 %}
-                                            <span class="badge bg-info me-1">
-                                                <i class="fas fa-play me-1"></i>{{ area_info.in_progress_tasks }} en progreso
-                                            </span>
-                                        {% endif %}
-                                        {% if area_info.pending_tasks > 0 and area_info.overdue_tasks == 0 %}
-                                            <span class="badge bg-warning">
-                                                <i class="fas fa-clock me-1"></i>{{ area_info.pending_tasks }} pendientes
-                                            </span>
-                                        {% endif %}
-                                        {% if area_info.task_count == 0 %}
-                                            <span class="badge bg-secondary">
-                                                <i class="fas fa-inbox me-1"></i>Sin tareas
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
+    {% for area_info in areas_data %}
+    <div class="col-md-6 col-xl-4 mb-3">
+        <article class="card tarjeta-area h-100 {% if area_info.overdue_tasks %}con-vencidas{% endif %}">
+            <div class="tarjeta-area-acento"></div>
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <h3 class="h6 mb-0">{{ area_info.area.name }}</h3>
+                    {% if area_info.overdue_tasks > 0 %}
+                        <span class="badge text-bg-danger">{{ area_info.overdue_tasks }} {{ 'vencida' if area_info.overdue_tasks == 1 else 'vencidas' }}</span>
+                    {% elif area_info.task_count == 0 %}
+                        <span class="badge text-bg-secondary">Sin tareas</span>
+                    {% elif area_info.in_progress_tasks > 0 %}
+                        <span class="badge text-bg-primary">{{ area_info.in_progress_tasks }} en progreso</span>
+                    {% elif area_info.pending_tasks > 0 %}
+                        <span class="badge text-bg-warning">{{ area_info.pending_tasks }} {{ 'pendiente' if area_info.pending_tasks == 1 else 'pendientes' }}</span>
+                    {% else %}
+                        <span class="badge text-bg-success">Al día</span>
+                    {% endif %}
+                </div>
+                <p class="tarjeta-area-descripcion text-muted small mb-3">{{ area_info.area.description or 'Sin descripción' }}</p>
+                <div class="row g-2 text-center mb-3">
+                    <div class="col-3">
+                        <div class="tarjeta-area-metrica">
+                            <strong>{{ area_info.pending_tasks }}</strong>
+                            <span>Pendientes</span>
                         </div>
                     </div>
-                    {% endfor %}
+                    <div class="col-3">
+                        <div class="tarjeta-area-metrica">
+                            <strong>{{ area_info.in_progress_tasks }}</strong>
+                            <span>En progreso</span>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="tarjeta-area-metrica">
+                            <strong>{{ area_info.completed_tasks }}</strong>
+                            <span>Completadas</span>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="tarjeta-area-metrica {% if area_info.overdue_tasks %}es-vencida{% endif %}">
+                            <strong>{{ area_info.overdue_tasks }}</strong>
+                            <span>Vencidas</span>
+                        </div>
+                    </div>
                 </div>
+                <div class="mt-auto">
+                    <p class="small text-muted mb-2">{{ area_info.user_count }} {{ 'usuario' if area_info.user_count == 1 else 'usuarios' }} · {{ area_info.task_count }} {{ 'tarea' if area_info.task_count == 1 else 'tareas' }}</p>
+                    {% if area_info.high_priority_tasks or area_info.today_tasks %}
+                    <p class="small text-muted mb-2">
+                        {% if area_info.high_priority_tasks %}{{ area_info.high_priority_tasks }} de prioridad alta{% endif %}
+                        {% if area_info.high_priority_tasks and area_info.today_tasks %} · {% endif %}
+                        {% if area_info.today_tasks %}{{ area_info.today_tasks }} vencen hoy{% endif %}
+                    </p>
+                    {% endif %}
+                    <a href="{{ url_for('area.view', area_id=area_info.area.id) }}" class="btn btn-outline-primary btn-sm">Ver área</a>
+                </div>
+            </div>
+        </article>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <p class="text-muted mb-3">Todavía no hay áreas.</p>
+                <a href="{{ url_for('area.create') }}" class="btn btn-primary">Nueva área</a>
             </div>
         </div>
     </div>
+    {% endfor %}
 </div>
 
 <!-- Tareas Recientes -->

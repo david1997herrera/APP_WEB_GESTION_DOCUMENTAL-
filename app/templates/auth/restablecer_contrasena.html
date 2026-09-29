@@ -1,0 +1,40 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Nueva contraseña - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Rosemirovich Roses" class="acceso-logo">
+                    </div>
+                    <h1 class="h3 text-primary mb-2">Nueva contraseña</h1>
+
+                    {% if vigente %}
+                    <p class="text-muted">Elija una contraseña de al menos 8 caracteres. Este enlace vence en 5 minutos.</p>
+                    <form method="POST" action="{{ url_for('auth.restablecer_contrasena', token=token) }}">
+                        <div class="mb-3">
+                            <label class="form-label" for="password">Contraseña nueva</label>
+                            <input class="form-control form-control-lg" type="password" id="password" name="password" required minlength="8" autocomplete="new-password">
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="confirmacion">Repita la contraseña</label>
+                            <input class="form-control form-control-lg" type="password" id="confirmacion" name="confirmacion" required minlength="8" autocomplete="new-password">
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Guardar contraseña</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p class="text-muted">El enlace venció o ya se usó. Solicite uno nuevo.</p>
+                    <a class="btn btn-primary" href="{{ url_for('auth.olvide_contrasena') }}">Solicitar otro enlace</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

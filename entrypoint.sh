@@ -12,7 +12,7 @@ else
   echo "ℹ️ RUN_DB_INIT no es true, no se ejecuta init_db.py"
 fi
 
-echo "🌐 Iniciando servidor web..."
-exec python main.py
+echo "Iniciando servidor web..."
+exec waitress-serve --listen=0.0.0.0:3110 main:app
 
 

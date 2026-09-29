@@ -78,20 +78,20 @@
 <!-- Tabla de áreas -->
 <div class="row">
     <div class="col-12">
-        <div class="card">
+        <div class="card card-listado-tareas">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i class="fas fa-list me-2"></i>Áreas ({{ areas|length }})
                 </h5>
                 <div>
-                    <a href="{{ url_for('reports.export_areas_csv') }}" class="btn btn-success btn-sm">
-                        <i class="fas fa-download me-1"></i>Exportar CSV
+                    <a href="{{ url_for('reports.exportar_areas') }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-file-excel me-1"></i>Descargar Excel
                     </a>
                 </div>
             </div>
             <div class="card-body">
                 {% if areas %}
-                <div class="table-responsive">
+                <div class="tabla-con-scroll">
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -189,7 +189,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // Gráfico de tareas por área

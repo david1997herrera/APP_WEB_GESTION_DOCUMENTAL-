@@ -1,3 +1,5 @@
+from html import escape
+
 from flask_mail import Message
 from flask import current_app
 import os
@@ -6,29 +8,87 @@ from app.models.user import User
 from app.models.task import Task
 from app.models.area import Area
 from app.models.purchase_requisition import PurchaseRequisition
+from app.infraestructura.url_publica import url_publica
+
+
+def envolver_correo(interior):
+    """Marco común: banner azul, franja roja y pie de Rosemirovich Roses."""
+    cuerpo = interior or ""
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background:#f4f6fb;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:24px 0;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+<tr>
+<td style="background:#0010a0;padding:16px 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+<td width="120" valign="middle">
+<img src="cid:logo-rosemirovich" alt="Rosemirovich Roses" width="110" style="display:block;background:#ffffff;border-radius:8px;padding:4px;">
+</td>
+<td valign="middle" style="padding-left:16px;color:#ffffff;font-family:Arial,sans-serif;">
+<div style="font-size:16px;font-weight:700;letter-spacing:0.04em;">ROSEMIROVICH ROSES</div>
+<div style="font-size:12px;opacity:0.9;">Roses around the world</div>
+</td>
+</tr></table>
+</td>
+</tr>
+<tr><td style="height:4px;background:#c00000;font-size:0;line-height:0;">&nbsp;</td></tr>
+<tr>
+<td style="padding:24px;font-family:Arial,sans-serif;color:#1c1c1c;font-size:15px;line-height:1.5;">
+{cuerpo}
+</td>
+</tr>
+<tr>
+<td style="padding:16px 24px;background:#f4f6fb;color:#5c6570;font-family:Arial,sans-serif;font-size:12px;">
+Gestión Documental · Rosemirovich Roses<br>
+Este mensaje es automático.
+</td>
+</tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+
+def _adjuntar_logo(mensaje):
+    ruta = os.path.join(current_app.static_folder, "img", "logo.png")
+    if not os.path.isfile(ruta):
+        return
+    with open(ruta, "rb") as archivo:
+        datos = archivo.read()
+    mensaje.attach(
+        "logo.png",
+        "image/png",
+        datos,
+        "inline",
+        headers={"Content-ID": "<logo-rosemirovich>"},
+    )
+
 
 class EmailService:
     """Servicio para envío de notificaciones por email"""
     
     @staticmethod
     def send_email(to, subject, body, html=None):
-        """Enviar email básico"""
+        """Envía el correo con el banner de la empresa cuando hay versión HTML."""
         try:
             from main import mail
-            import os
-            
-            msg = Message(
+
+            remitente = os.getenv('EMAIL_SENDER', 'harvest.hero.app@gmail.com')
+            mensaje = Message(
                 subject=subject,
                 recipients=[to],
                 body=body,
-                html=html,
-                sender=os.getenv('EMAIL_SENDER', 'harvest.hero.app@gmail.com')
+                html=envolver_correo(html) if html else None,
+                sender=('Rosemirovich Roses', remitente),
             )
-            mail.send(msg)
-            print(f"✅ Email enviado exitosamente a: {to}")
+            _adjuntar_logo(mensaje)
+            mail.send(mensaje)
             return True
         except Exception as e:
-            print(f"❌ Error enviando email a {to}: {e}")
+            print(f"Error enviando correo: {e}")
             return False
     
     @staticmethod
@@ -42,7 +102,7 @@ class EmailService:
                 return False
             
             subject = f"📋 Nueva tarea asignada: {task.title}"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             body = f"""
 Hola {user.username},
 
@@ -108,7 +168,7 @@ Sistema de Gestión Documental
             creator = User.query.get(task.created_by)
             if creator and creator.email:
                 subject = f"✅ Tarea completada: {task.title}"
-                base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+                base_url = url_publica()
                 body = f"""
 Hola {creator.username},
 
@@ -167,7 +227,7 @@ Sistema de Gestión Documental
         """Notificar cuando se crea un nuevo usuario"""
         try:
             subject = f"👤 Cuenta creada - Sistema de Gestión Documental"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             body = f"""
 Hola {username},
 
@@ -233,7 +293,7 @@ Sistema de Gestión Documental
                 return False
 
             subject = f"📁 Asignación de área: {area.name}"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             body = f"""
 Hola {user.username},
 
@@ -267,7 +327,7 @@ Sistema de Gestión Documental
         """Notificar al usuario que su contraseña ha sido actualizada"""
         try:
             subject = "🔐 Contraseña actualizada - Sistema de Gestión Documental"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             body = f"""
 Hola {username},
 
@@ -315,7 +375,7 @@ Sistema de Gestión Documental
                 return False
             
             subject = f"📎 Archivo subido: {task.title}"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             body = f"""
 Hola Administrador,
 
@@ -393,7 +453,7 @@ Sistema de Gestión Documental
                 return False
             
             subject = f"⚠️ Tarea vencida: {task.title}"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             body = f"""
 Hola,
 
@@ -458,7 +518,7 @@ Sistema de Gestión Documental
                 return False
 
             subject = f"🛒 Nueva requisición de compra: {requisition.title}"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
 
             amount_text = f"${requisition.amount:,.2f}" if requisition.amount is not None else "No especificado"
             requester_name = requisition.requester.username if requisition.requester else "N/D"
@@ -533,7 +593,7 @@ Sistema de Gestión Documental
 
             user = requisition.requester
             subject = f"🛒 Estado actualizado de tu requisición: {requisition.title}"
-            base_url = os.getenv('APP_BASE_URL', 'http://localhost:3110')
+            base_url = url_publica()
             amount_text = f"${requisition.amount:,.2f}" if requisition.amount is not None else "No especificado"
 
             body = f"""
@@ -581,3 +641,32 @@ Sistema de Gestión Documental
         except Exception as e:
             print(f"Error notificando cambio de estado de requisición: {e}")
             return False
+
+    @staticmethod
+    def enviar_enlace_restablecimiento(correo, nombre_usuario, enlace):
+        """Envía el enlace de un solo uso para cambiar la contraseña."""
+        nombre = escape(nombre_usuario or '')
+        destino = escape(enlace or '', quote=True)
+        cuerpo = (
+            f'Hola {nombre_usuario},\n\n'
+            f'Para elegir una contraseña nueva, abra este enlace. Vence en 5 minutos '
+            f'y solo puede usarse una vez:\n\n{enlace}\n\n'
+            f'Si usted no lo solicitó, ignore este correo.\n'
+        )
+        html = (
+            '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">'
+            f'<p>Hola <strong>{nombre}</strong>,</p>'
+            '<p>Para elegir una contraseña nueva, use este enlace. '
+            'Vence en 5 minutos y solo puede usarse una vez.</p>'
+            '<p style="text-align: center; margin: 28px 0;">'
+            f'<a href="{destino}" style="background: #0010a0; color: #fff; padding: 12px 24px; '
+            'text-decoration: none; border-radius: 8px;">Cambiar contraseña</a></p>'
+            '<p>Si usted no lo solicitó, ignore este correo.</p>'
+            '</div>'
+        )
+        return EmailService.send_email(
+            correo,
+            'Enlace para cambiar su contraseña - Gestión Documental',
+            cuerpo,
+            html,
+        )

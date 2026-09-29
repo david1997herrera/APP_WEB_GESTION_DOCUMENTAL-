@@ -5,6 +5,7 @@ import unicodedata
 from app.models.area import Area, AreaUser
 from app.models.user import User
 from app.models.task import Task
+from app.models.scheduled_task import ScheduledTask
 from app.config import db
 from datetime import datetime
 from app.services.email_service import EmailService
@@ -125,6 +126,78 @@ def create():
     
     return render_template('area/create.html')
 
+def _momento_de_corrida(tarea):
+    return tarea.corrida_en or tarea.created_at or datetime(1970, 1, 1)
+
+
+def _texto_cantidad(cantidad, singular, plural):
+    return f"{cantidad} {singular if cantidad == 1 else plural}"
+
+
+def _agrupar_tareas_del_area(tareas):
+    """Una fila por programación. Las corridas quedan dentro, no en la tabla larga."""
+    normales = []
+    grupos = {}
+    for tarea in tareas:
+        if not tarea.scheduled_task_id:
+            normales.append(tarea)
+            continue
+        grupos.setdefault(tarea.scheduled_task_id, []).append(tarea)
+
+    if grupos:
+        programaciones = {
+            item.id: item
+            for item in ScheduledTask.query.filter(ScheduledTask.id.in_(grupos)).all()
+        }
+    else:
+        programaciones = {}
+
+    periodicas = []
+    for programacion_id, copias in grupos.items():
+        programacion = programaciones.get(programacion_id)
+        copias.sort(key=lambda tarea: (
+            -_momento_de_corrida(tarea).timestamp(),
+            (tarea.assignee.username if tarea.assignee else '').lower(),
+        ))
+        pendientes = sum(1 for copia in copias if copia.status == 'pendiente')
+        en_progreso = sum(1 for copia in copias if copia.status == 'en_progreso')
+        completadas = sum(1 for copia in copias if copia.status == 'completada')
+        resumen = []
+        if pendientes:
+            resumen.append(_texto_cantidad(pendientes, 'pendiente', 'pendientes'))
+        if en_progreso:
+            resumen.append(_texto_cantidad(en_progreso, 'en progreso', 'en progreso'))
+        if completadas:
+            resumen.append(_texto_cantidad(completadas, 'completada', 'completadas'))
+        if programacion and programacion.assigned_users:
+            asignados = [usuario.username for usuario in programacion.assigned_users]
+        else:
+            asignados = sorted({copia.assignee.username for copia in copias if copia.assignee})
+        fechas = [_momento_de_corrida(copia).date() for copia in copias]
+        prioridades = {copia.priority for copia in copias}
+        if programacion and programacion.interval and programacion.interval > 1:
+            ciclo = f"{programacion.get_frequency_display()}, cada {programacion.interval}"
+        elif programacion:
+            ciclo = programacion.get_frequency_display()
+        else:
+            ciclo = 'Periódica'
+        periodicas.append({
+            'id': programacion_id,
+            'titulo': programacion.title if programacion else copias[0].title,
+            'asignados': asignados,
+            'ciclo': ciclo,
+            'prioridad': next(iter(prioridades)) if len(prioridades) == 1 else None,
+            'cantidad': len(copias),
+            'desde': min(fechas) if fechas else None,
+            'hasta': max(fechas) if fechas else None,
+            'resumen_estado': ' · '.join(resumen),
+            'copias': copias,
+            'hay_programacion': programacion is not None,
+        })
+    periodicas.sort(key=lambda item: item['titulo'].lower())
+    return normales, periodicas
+
+
 @area_bp.route('/<int:area_id>')
 @login_required
 @area_scope_required
@@ -132,9 +205,16 @@ def view(area_id):
     """Ver detalles de un área"""
     area = Area.query.get_or_404(area_id)
     users = area.get_users()
-    tasks = Task.query.filter_by(area_id=area_id).order_by(Task.created_at.desc()).all()
-    
-    return render_template('area/view.html', area=area, users=users, tasks=tasks)
+    tareas = Task.query.filter_by(area_id=area_id).order_by(Task.created_at.desc()).all()
+    normales, periodicas = _agrupar_tareas_del_area(tareas)
+
+    return render_template(
+        'area/view.html',
+        area=area,
+        users=users,
+        tasks=normales,
+        periodicas=periodicas,
+    )
 
 @area_bp.route('/<int:area_id>/edit', methods=['GET', 'POST'])
 @login_required

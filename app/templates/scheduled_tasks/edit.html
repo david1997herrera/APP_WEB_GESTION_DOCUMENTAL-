@@ -116,6 +116,7 @@
                                 <label for="end_date" class="form-label">Fecha de fin (opcional)</label>
                                 <input type="date" class="form-control" id="end_date" name="end_date"
                                        value="{{ task.end_date.strftime('%Y-%m-%d') if task.end_date else '' }}">
+                                <div class="invalid-feedback" id="aviso-fin">La fecha de fin no puede ser anterior a la fecha de inicio.</div>
                             </div>
                         </div>
 
@@ -157,5 +158,32 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const inicio = document.getElementById('start_date');
+    const fin = document.getElementById('end_date');
+    const aviso = document.getElementById('aviso-fin');
+    const formulario = inicio ? inicio.closest('form') : null;
+    if (!inicio || !fin || !formulario) return;
+
+    function revisarFechas() {
+        fin.min = inicio.value || '';
+        const mal = Boolean(inicio.value && fin.value && fin.value < inicio.value);
+        fin.classList.toggle('is-invalid', mal);
+        if (aviso) aviso.style.display = mal ? 'block' : '';
+        return !mal;
+    }
+
+    inicio.addEventListener('change', revisarFechas);
+    fin.addEventListener('change', revisarFechas);
+    formulario.addEventListener('submit', function (evento) {
+        if (!revisarFechas()) evento.preventDefault();
+    });
+    revisarFechas();
+});
+</script>
 {% endblock %}
 

@@ -1,0 +1,32 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Olvidé mi contraseña - Gestión Documental{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-5">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Rosemirovich Roses" class="acceso-logo">
+                    </div>
+                    <h1 class="h3 text-primary mb-2">Olvidé mi contraseña</h1>
+                    <p class="text-muted">Escriba su nombre de usuario. Si existe, le llega un enlace a su correo. Vence en 5 minutos.</p>
+
+                    <form method="POST" action="{{ url_for('auth.olvide_contrasena') }}">
+                        <div class="mb-4">
+                            <label class="form-label" for="username">Usuario</label>
+                            <input class="form-control form-control-lg" type="text" id="username" name="username" required autocomplete="username" placeholder="Su nombre de usuario">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Enviar enlace</button>
+                            <a class="btn btn-outline-secondary" href="{{ url_for('auth.login') }}">Volver al inicio de sesión</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

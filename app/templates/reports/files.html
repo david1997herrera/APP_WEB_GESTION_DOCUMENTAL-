@@ -221,20 +221,20 @@
 <!-- Tabla de archivos -->
 <div class="row">
     <div class="col-12">
-        <div class="card">
+        <div class="card card-listado-tareas">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i class="fas fa-list me-2"></i>Archivos ({{ files|length }})
                 </h5>
                 <div>
-                    <a href="{{ url_for('reports.export_files_csv') }}" class="btn btn-success btn-sm">
-                        <i class="fas fa-download me-1"></i>Exportar CSV
+                    <a href="{{ url_for('reports.exportar_archivos') }}{% if request.query_string %}?{{ request.query_string.decode() }}{% endif %}" class="btn btn-success btn-sm">
+                        <i class="fas fa-file-excel me-1"></i>Descargar Excel
                     </a>
                 </div>
             </div>
             <div class="card-body">
                 {% if files %}
-                <div class="table-responsive">
+                <div class="tabla-con-scroll">
                     <table class="table table-hover">
                         <thead>
                             <tr>

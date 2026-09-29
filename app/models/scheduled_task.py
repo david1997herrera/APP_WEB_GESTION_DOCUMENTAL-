@@ -32,6 +32,8 @@ class ScheduledTask(db.Model):
 
     # Siguiente fecha de ejecución sugerida (para futuros automatismos)
     next_run_at = db.Column(db.DateTime, nullable=True)
+    # Ultima corrida ya emitida. Si se borran las tareas, no se vuelve a crear.
+    ultima_corrida_en = db.Column(db.DateTime, nullable=True)
 
     is_active = db.Column(db.Boolean, default=True)
 

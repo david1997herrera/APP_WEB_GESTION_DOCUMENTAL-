@@ -1,13 +1,18 @@
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, make_response, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from app.config import db
+from app.dominio.corridas import debe_omitir_creacion, momento_consumido
+from app.dominio.fechas import fin_es_anterior_al_inicio
+from app.dominio.reloj import ahora_ecuador
 from app.models.area import Area
-from app.models.scheduled_task import ScheduledTask
+from app.models.scheduled_task import ScheduledTask, ScheduledTaskUser
 from app.models.task import Task
 from app.models.user import User
+from app.services.avisos_borrado import armar_aviso_borrado, enviar_aviso_borrado
+from app.services.borrado_tareas import eliminar_tareas
 
 
 scheduled_task_bp = Blueprint('scheduled_task', __name__)
@@ -62,11 +67,11 @@ def _add_frequency_interval(current: datetime, frequency: str, interval: int) ->
 
 
 def _task_already_generated_for_run(scheduled_id: int, user_id: int, run_at: datetime) -> bool:
-    """Idempotencia: evita recrear la misma tarea para el mismo disparo (run_at)."""
+    """La misma persona no recibe dos filas de la misma corrida."""
     existing = Task.query.filter(
         Task.scheduled_task_id == scheduled_id,
         Task.assigned_to == user_id,
-        Task.created_at >= run_at,
+        Task.corrida_en == run_at,
     ).first()
     return existing is not None
 
@@ -88,6 +93,7 @@ def _create_generated_tasks_for_schedule(scheduled: ScheduledTask, run_at: datet
             assigned_to=user.id,
             priority=scheduled.priority or 'media',
             scheduled_task_id=scheduled.id,
+            corrida_en=run_at,
         )
         db.session.add(task)
         created_any = True
@@ -116,9 +122,15 @@ def _process_single_scheduled_task(scheduled: ScheduledTask, reference: datetime
     if not scheduled.assigned_users:
         return False
 
-    # IMPORTANTE: avanzar next_run_at ANTES de crear tareas.
-    # Si el usuario borra la tarea generada, el scheduler no la recrea en el mismo periodo.
-    scheduled.next_run_at = _calculate_next_run_at(scheduled, reference)
+    # La corrida ya se emitio, aunque hayan borrado las tareas: solo adelantar la proxima.
+    if debe_omitir_creacion(scheduled.ultima_corrida_en, run_at):
+        scheduled.next_run_at = _calculate_next_run_at(scheduled, reference)
+        scheduled.updated_at = reference
+        return True
+
+    siguiente = _calculate_next_run_at(scheduled, reference)
+    scheduled.ultima_corrida_en = run_at
+    scheduled.next_run_at = siguiente
     scheduled.updated_at = reference
     db.session.flush()
 
@@ -132,7 +144,9 @@ def _process_single_scheduled_task(scheduled: ScheduledTask, reference: datetime
 def index():
     """Listado de tareas programadas"""
     tasks = ScheduledTask.query.order_by(ScheduledTask.created_at.desc()).all()
-    return render_template('scheduled_tasks/index.html', tasks=tasks)
+    respuesta = make_response(render_template('scheduled_tasks/index.html', tasks=tasks))
+    respuesta.headers['Cache-Control'] = 'no-store'
+    return respuesta
 
 
 @scheduled_task_bp.route('/<int:task_id>')
@@ -169,7 +183,7 @@ def create():
             return render_template('scheduled_tasks/create.html', areas=areas, users=users)
 
         try:
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d') if start_date else datetime.utcnow()
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d') if start_date else ahora_ecuador()
         except ValueError:
             flash('Formato de fecha de inicio inválido.', 'error')
             return render_template('scheduled_tasks/create.html', areas=areas, users=users)
@@ -188,6 +202,9 @@ def create():
                 end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
             except ValueError:
                 flash('Formato de fecha de fin inválido.', 'error')
+                return render_template('scheduled_tasks/create.html', areas=areas, users=users)
+            if fin_es_anterior_al_inicio(start_date_obj, end_date_obj):
+                flash('La fecha de fin no puede ser anterior a la fecha de inicio.', 'error')
                 return render_template('scheduled_tasks/create.html', areas=areas, users=users)
 
         scheduled_task = ScheduledTask(
@@ -213,7 +230,7 @@ def create():
             db.session.commit()
 
             # Catch-up inmediato: si la hora/fecha ya pasó, crear tareas ahora mismo.
-            now = datetime.utcnow()
+            now = ahora_ecuador()
             if _process_single_scheduled_task(scheduled_task, now):
                 db.session.commit()
 
@@ -253,7 +270,7 @@ def edit(task_id):
             return render_template('scheduled_tasks/edit.html', task=task, areas=areas, users=users)
 
         try:
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d') if start_date else datetime.utcnow()
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d') if start_date else ahora_ecuador()
         except ValueError:
             flash('Formato de fecha de inicio inválido.', 'error')
             return render_template('scheduled_tasks/edit.html', task=task, areas=areas, users=users)
@@ -272,6 +289,9 @@ def edit(task_id):
                 end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
             except ValueError:
                 flash('Formato de fecha de fin inválido.', 'error')
+                return render_template('scheduled_tasks/edit.html', task=task, areas=areas, users=users)
+            if fin_es_anterior_al_inicio(start_date_obj, end_date_obj):
+                flash('La fecha de fin no puede ser anterior a la fecha de inicio.', 'error')
                 return render_template('scheduled_tasks/edit.html', task=task, areas=areas, users=users)
 
         # Solo recalcular next_run_at si cambió la calendarización (evita regenerar al editar texto)
@@ -307,7 +327,7 @@ def edit(task_id):
 
             # Catch-up solo si cambió la calendarización (idempotente).
             if schedule_changed:
-                now = datetime.utcnow()
+                now = ahora_ecuador()
                 if _process_single_scheduled_task(task, now):
                     db.session.commit()
 
@@ -320,22 +340,59 @@ def edit(task_id):
     return render_template('scheduled_tasks/edit.html', task=task, areas=areas, users=users)
 
 
+def eliminar_programacion_completa(programacion: ScheduledTask) -> int:
+    """Quita la programacion y todas las tareas que ya genero. No confirma la transaccion."""
+    generadas = Task.query.filter_by(scheduled_task_id=programacion.id).all()
+    eliminar_tareas(generadas)
+    programacion.assigned_users = []
+    db.session.flush()
+    ScheduledTaskUser.query.filter_by(scheduled_task_id=programacion.id).delete(synchronize_session=False)
+    db.session.delete(programacion)
+    return len(generadas)
+
+
 @scheduled_task_bp.route('/<int:task_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def delete(task_id):
-    """Eliminar tarea programada"""
-    task = ScheduledTask.query.get_or_404(task_id)
+    """Eliminar la programacion y las tareas que ya genero."""
+    task = db.session.get(ScheduledTask, task_id)
+    if task is None:
+        flash('Esa programación ya no está en el listado.', 'info')
+        return redirect(url_for('scheduled_task.index'))
 
     try:
-        db.session.delete(task)
+        copias = Task.query.filter_by(scheduled_task_id=task.id).all()
+        aviso = armar_aviso_borrado(copias, [task])
+        cantidad = eliminar_programacion_completa(task)
         db.session.commit()
-        flash('Tarea programada eliminada correctamente.', 'success')
+        enviar_aviso_borrado(aviso)
+        if cantidad:
+            flash(
+                f'Se eliminó la programación y {cantidad} tareas ya generadas.',
+                'success',
+            )
+        else:
+            flash('Tarea programada eliminada correctamente.', 'success')
     except Exception:
         db.session.rollback()
         flash('Error al eliminar la tarea programada.', 'error')
 
     return redirect(url_for('scheduled_task.index'))
+
+
+def marcar_corrida_atendida(scheduled: ScheduledTask, momento: datetime):
+    """Despues de borrar una generacion, esa corrida no se vuelve a crear."""
+    ahora = ahora_ecuador()
+    scheduled.ultima_corrida_en = momento_consumido(
+        scheduled.ultima_corrida_en,
+        momento,
+        scheduled.next_run_at,
+        ahora,
+    )
+    if scheduled.next_run_at is None or scheduled.next_run_at <= ahora:
+        scheduled.next_run_at = _calculate_next_run_at(scheduled, ahora)
+    scheduled.updated_at = ahora
 
 
 def _calculate_next_run_at(scheduled_task: ScheduledTask, reference: datetime) -> datetime:
@@ -361,7 +418,7 @@ def _calculate_next_run_at(scheduled_task: ScheduledTask, reference: datetime) -
 
 def process_scheduled_tasks():
     """Generar tareas normales a partir de tareas programadas que toquen hoy/ahora."""
-    now = datetime.utcnow()
+    now = ahora_ecuador()
 
     active_ids = [
         row.id

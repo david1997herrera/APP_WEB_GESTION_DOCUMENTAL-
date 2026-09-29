@@ -18,10 +18,10 @@
 
 <div class="row">
     <div class="col-12">
-        <div class="card">
+        <div class="card card-listado-tareas">
             <div class="card-body">
                 {% if tasks %}
-                <div class="table-responsive">
+                <div class="tabla-con-scroll">
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
@@ -62,7 +62,12 @@
                                     {{ task.start_date.strftime('%d/%m/%Y') if task.start_date else '-' }}
                                 </td>
                                 <td>
-                                    {{ task.end_date.strftime('%d/%m/%Y') if task.end_date else '-' }}
+                                    {% if task.end_date and task.start_date and task.end_date.date() < task.start_date.date() %}
+                                        <span class="badge text-bg-danger">Fin anterior al inicio</span>
+                                        <div class="small text-muted">{{ task.end_date.strftime('%d/%m/%Y') }}</div>
+                                    {% else %}
+                                        {{ task.end_date.strftime('%d/%m/%Y') if task.end_date else '-' }}
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if task.is_active %}
@@ -74,13 +79,24 @@
                                 <td>
                                     <div class="btn-group" role="group">
                                         <a href="{{ url_for('scheduled_task.edit', task_id=task.id) }}"
-                                           class="btn btn-outline-warning btn-sm">
+                                           class="btn btn-outline-warning btn-sm"
+                                           aria-label="Editar {{ task.title }}">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <button class="btn btn-outline-danger btn-sm"
-                                                onclick="deleteScheduledTask({{ task.id }})">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                        <form method="POST"
+                                              action="{{ url_for('scheduled_task.delete', task_id=task.id) }}"
+                                              id="form-eliminar-{{ task.id }}"
+                                              class="d-inline">
+                                            <button type="button"
+                                                    class="btn btn-outline-danger btn-sm"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modal-eliminar-programacion"
+                                                    data-formulario="form-eliminar-{{ task.id }}"
+                                                    data-titulo="{{ task.title }}"
+                                                    aria-label="Eliminar {{ task.title }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>
@@ -89,8 +105,31 @@
                     </table>
                 </div>
                 {% else %}
-                <p class="mb-0 text-muted">No hay tareas programadas configuradas todavía.</p>
+                <div class="text-center py-5">
+                    <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-3">No hay tareas programadas configuradas todavía.</p>
+                    <a href="{{ url_for('scheduled_task.create') }}" class="btn btn-primary">Nueva tarea programada</a>
+                </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal-eliminar-programacion" tabindex="-1" aria-labelledby="titulo-modal-eliminar-programacion" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="titulo-modal-eliminar-programacion">Eliminar programación</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2" id="texto-modal-eliminar-programacion"></p>
+                <p class="text-muted mb-0">Se borran la programación y las tareas que ya generó. No vuelve a crearse.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmar-eliminar-programacion">Eliminar programación</button>
             </div>
         </div>
     </div>
@@ -99,15 +138,25 @@
 
 {% block extra_js %}
 <script>
-function deleteScheduledTask(taskId) {
-    if (confirm('¿Estás seguro de que quieres eliminar esta tarea programada?')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("scheduled_task.delete", task_id=0) }}'.replace('0', taskId);
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
+(function () {
+    var modal = document.getElementById('modal-eliminar-programacion');
+    var confirmar = document.getElementById('confirmar-eliminar-programacion');
+    if (!modal || !confirmar) return;
+    var formularioId = '';
+    modal.addEventListener('show.bs.modal', function (evento) {
+        var origen = evento.relatedTarget;
+        var boton = origen && origen.closest ? (origen.closest('[data-formulario]') || origen) : null;
+        if (!boton) return;
+        formularioId = boton.getAttribute('data-formulario') || '';
+        var titulo = boton.getAttribute('data-titulo') || 'esta programación';
+        document.getElementById('texto-modal-eliminar-programacion').textContent =
+            '¿Elimina «' + titulo + '»?';
+    });
+    confirmar.addEventListener('click', function () {
+        var formulario = document.getElementById(formularioId);
+        if (formulario) formulario.submit();
+    });
+})();
 </script>
 {% endblock %}
 

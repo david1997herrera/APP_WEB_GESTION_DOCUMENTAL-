@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.config import db
+from app.dominio.reloj import ahora_ecuador
 
 class Task(db.Model):
     __tablename__ = 'tasks'
@@ -18,15 +19,30 @@ class Task(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
-    # Origen: tarea programada (opcional)
+    # Origen: tarea programada (opcional). corrida_en agrupa las copias de la misma generacion.
     scheduled_task_id = db.Column(db.Integer, db.ForeignKey('scheduled_tasks.id'), nullable=True)
+    corrida_en = db.Column(db.DateTime, nullable=True)
     
     # Relaciones
     files = db.relationship('File', lazy=True, cascade='all, delete-orphan', overlaps="files")
     # Relación con usuarios (creador y asignado)
     creator = db.relationship('User', foreign_keys=[created_by], backref='created_tasks', lazy=True)
     assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_tasks', lazy=True)
-    
+
+    @classmethod
+    def de_la_misma_generacion(cls, tarea):
+        """Copias de la misma programacion y la misma corrida, una por persona."""
+        if not tarea.scheduled_task_id:
+            return [tarea]
+        consulta = cls.query.filter(cls.scheduled_task_id == tarea.scheduled_task_id)
+        if tarea.corrida_en is not None:
+            return consulta.filter(cls.corrida_en == tarea.corrida_en).all()
+        if not tarea.created_at:
+            return [tarea]
+        inicio = tarea.created_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        fin = inicio + timedelta(days=1)
+        return consulta.filter(cls.created_at >= inicio, cls.created_at < fin).all()
+
     def get_progress_percentage(self):
         """Calcular porcentaje de progreso basado en archivos subidos"""
         if self.required_files == 0:
@@ -41,13 +57,13 @@ class Task(db.Model):
         """Verificar si la tarea está vencida"""
         if not self.due_date:
             return False
-        return datetime.utcnow() > self.due_date and self.status != 'completada'
+        return ahora_ecuador() > self.due_date and self.status != 'completada'
     
     def get_overdue_days(self):
         """Obtener días de retraso"""
         if not self.due_date or not self.is_overdue():
             return 0
-        return (datetime.utcnow() - self.due_date).days
+        return (ahora_ecuador() - self.due_date).days
     
     def update_file_count(self):
         """Actualizar contador de archivos subidos"""
@@ -70,11 +86,11 @@ class Task(db.Model):
     def get_status_badge_class(self):
         """Obtener clase CSS para el badge de estado"""
         status_classes = {
-            'pendiente': 'badge-secondary',
-            'en_progreso': 'badge-warning',
-            'completada': 'badge-success'
+            'pendiente': 'text-bg-secondary',
+            'en_progreso': 'text-bg-warning',
+            'completada': 'text-bg-success',
         }
-        return status_classes.get(self.status, 'badge-secondary')
+        return status_classes.get(self.status, 'text-bg-secondary')
     
     def get_priority_badge_class(self):
         """Obtener clase CSS para el badge de prioridad"""

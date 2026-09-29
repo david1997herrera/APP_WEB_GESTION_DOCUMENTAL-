@@ -7,7 +7,9 @@ Ejecutar este script para crear las tablas y el usuario admin
 import os
 import sys
 
-# Importar directamente desde main.py
+# Evita arrancar el planificador al importar main solo para crear tablas.
+os.environ['GESTION_OMITIR_ARRANQUE'] = 'true'
+
 from main import init_db
 
 if __name__ == '__main__':

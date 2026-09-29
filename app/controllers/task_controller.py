@@ -5,7 +5,11 @@ from app.models.area import Area
 from app.models.user import User
 from app.models.file import File
 from app.config import db
+from app.controllers.scheduled_task_controller import marcar_corrida_atendida
+from app.models.scheduled_task import ScheduledTask
+from app.services.borrado_tareas import eliminar_tareas
 from app.services.email_service import EmailService
+from app.services.avisos_borrado import armar_aviso_borrado, enviar_aviso_borrado
 from datetime import datetime
 from sqlalchemy import or_
 
@@ -99,6 +103,35 @@ def view(task_id):
     files = File.query.filter_by(task_id=task_id).all()
     return render_template('task/view.html', task=task, files=files)
 
+def _agrupar_mis_tareas(tareas):
+    """Una fila por programación. Las corridas no se listan una por una."""
+    normales = []
+    grupos = {}
+    for tarea in tareas:
+        if not tarea.scheduled_task_id:
+            normales.append(tarea)
+            continue
+        grupos.setdefault(tarea.scheduled_task_id, []).append(tarea)
+
+    periodicas = []
+    for copias in grupos.values():
+        copias.sort(
+            key=lambda tarea: tarea.corrida_en or tarea.created_at or datetime.min,
+            reverse=True,
+        )
+        reciente = next((copia for copia in copias if copia.status != 'completada'), copias[0])
+        periodicas.append({
+            'titulo': reciente.title,
+            'area': reciente.area.name if reciente.area else '',
+            'cantidad': len(copias),
+            'pendientes': sum(1 for copia in copias if copia.status != 'completada'),
+            'reciente': reciente,
+            'copias': copias,
+        })
+    periodicas.sort(key=lambda item: item['titulo'].lower())
+    return normales, periodicas
+
+
 @task_bp.route('/my')
 @login_required
 def my_tasks():
@@ -111,7 +144,7 @@ def my_tasks():
     
     if not user_areas:
         flash('No tienes áreas asignadas. Contacta al administrador.', 'warning')
-        return render_template('task/my_tasks.html', tasks=[])
+        return render_template('task/my_tasks.html', tasks=[], periodicas=[])
     
     if current_user.is_area_admin():
         # Admin por área: ve todas las tareas de sus áreas (sin depender de assigned_to).
@@ -124,8 +157,9 @@ def my_tasks():
             Task.area_id.in_(user_areas),
             or_(Task.assigned_to == current_user.id, Task.assigned_to.is_(None))
         ).order_by(Task.created_at.desc()).all()
-    
-    return render_template('task/my_tasks.html', tasks=tasks)
+
+    normales, periodicas = _agrupar_mis_tareas(tasks)
+    return render_template('task/my_tasks.html', tasks=normales, periodicas=periodicas)
 
 @task_bp.route('/<int:task_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -202,16 +236,31 @@ def delete(task_id):
         if not current_user.is_area_admin() or task.area_id not in user_areas:
             flash('No tienes permisos para eliminar esta tarea', 'error')
             return redirect(url_for('task.my_tasks'))
-    
+
+    generacion = Task.de_la_misma_generacion(task)
+    if not current_user.is_admin():
+        generacion = [candidata for candidata in generacion if candidata.area_id in user_areas]
+    if not generacion:
+        generacion = [task]
+
     try:
-        # Eliminar archivos asociados
-        for file in task.files:
-            file.delete_file()
-            db.session.delete(file)
-        
-        db.session.delete(task)
+        momento = task.corrida_en or task.created_at
+        programacion = None
+        if task.scheduled_task_id:
+            programacion = ScheduledTask.query.get(task.scheduled_task_id)
+        aviso = armar_aviso_borrado(generacion, [programacion] if programacion else None)
+        eliminar_tareas(generacion)
+        if programacion and momento:
+            marcar_corrida_atendida(programacion, momento)
         db.session.commit()
-        flash('Tarea eliminada exitosamente', 'success')
+        enviar_aviso_borrado(aviso)
+        if len(generacion) > 1:
+            flash(
+                f'Se eliminaron {len(generacion)} copias de esta generación, una por persona asignada.',
+                'success',
+            )
+        else:
+            flash('Tarea eliminada correctamente.', 'success')
         # Redirigir según el tipo de usuario
         if current_user.is_admin():
             return redirect(url_for('admin.tasks'))
